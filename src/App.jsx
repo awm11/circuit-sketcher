@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
+// ─── Editor geometry and interaction constants ────────────────────────────
 const GRID = 10;
 const WIDTH = 1320;
 const HEIGHT = 840;
@@ -31,6 +32,9 @@ const CELL_COUNT_MAX = 8;
 const CELL_GROUP_SPACING = 20;
 const CELL_PLATE_OFFSET = 5;
 
+const TRANSFORMER_TERMINAL_Y = 27;
+const TRANSFORMER_CORE_HALF_HEIGHT = 34;
+
 const INDUCTOR_PATH_D = `M -50 0
   L -40 0
 
@@ -53,6 +57,27 @@ const INDUCTOR_PATH_D = `M -50 0
   C 34 -13 38 -13 40 0
   L 50 0`;
 
+const TRANSFORMER_WINDING_PATH_D = `M -50 -27
+  L -34 -27
+  C -14 -27 -14 -20.5 -20 -13.5
+
+  C -26 -20.5 -40 -20.5 -40 -13.5
+  C -40 -6.5 -26 -6.5 -20 -13.5
+
+  C -14 -9 -14 -4 -20 0
+
+  C -26 -7 -40 -7 -40 0
+  C -40 7 -26 7 -20 0
+
+  C -14 4 -14 9 -20 13.5
+
+  C -26 6.5 -40 6.5 -40 13.5
+  C -40 20.5 -26 20.5 -20 13.5
+
+  C -14 20.5 -14 27 -34 27
+  L -50 27`;
+
+// ─── Symbol catalogue and shared metadata ─────────────────────────────────
 const BASIC_SYMBOLS = [
   { type: "lamp", label: "Lamp" },
   { type: "cell", label: "Cell" },
@@ -90,6 +115,54 @@ const SYMBOLS = [
   ...ADVANCED_SYMBOLS,
 ];
 
+const SYMBOL_LABEL_BY_TYPE = new Map(
+  SYMBOLS.map(({ type, label }) => [type, label])
+);
+
+const DEFAULT_COMPONENT_PORTS = Object.freeze(["left", "right"]);
+const COMPONENT_PORTS_BY_TYPE = Object.freeze({
+  label: Object.freeze([]),
+  junction: Object.freeze(["node"]),
+  "potential-divider": Object.freeze(["left", "right", "tap"]),
+  "switch-two-way": Object.freeze(["common", "upper", "lower"]),
+  microphone: Object.freeze(["upper", "lower"]),
+  potentiometer: Object.freeze(["top", "bottom", "wiper"]),
+  transformer: Object.freeze([
+    "primaryTop",
+    "primaryBottom",
+    "secondaryTop",
+    "secondaryBottom",
+  ]),
+  ground: Object.freeze(["top"]),
+});
+
+const BINARY_SWITCH_TYPES = new Set([
+  "switch-open",
+  "switch-closed",
+]);
+const POLARITY_COMPONENT_TYPES = new Set(["cell", "battery"]);
+const CUSTOM_CONNECTOR_COMPONENT_TYPES = new Set([
+  "transformer",
+  "ground",
+  "switch-two-way",
+  "microphone",
+]);
+const GENERIC_LABEL_ROTATION_EXCLUSIONS = new Set([
+  "label",
+  "wire-segment",
+  "potential-divider",
+]);
+const GROUP_LOCAL_ROTATION_EXCLUSIONS = new Set([
+  "label",
+  "junction",
+]);
+const GROUP_LABEL_ROTATION_EXCLUSIONS = new Set([
+  "label",
+  "junction",
+  "wire-segment",
+  "potential-divider",
+]);
+
 const LABEL_POSITIONS = [
   { value: "above", symbol: "↑", name: "Above" },
   { value: "below", symbol: "↓", name: "Below" },
@@ -105,14 +178,6 @@ function rotateLabelPositionClockwise(position) {
   return position;
 }
 
-function rotateLabelPositionCounterClockwise(position) {
-  if (position === "above") return "left";
-  if (position === "left") return "below";
-  if (position === "below") return "right";
-  if (position === "right") return "above";
-  return position;
-}
-
 function rotateLabelPositionBySteps(position, clockwiseSteps) {
   let next = position;
   const steps = ((clockwiseSteps % 4) + 4) % 4;
@@ -124,6 +189,7 @@ function rotateLabelPositionBySteps(position, clockwiseSteps) {
   return next;
 }
 
+// ─── Label and Unicode configuration ──────────────────────────────────────
 const LABEL_FONT_STEP = 2;
 const LABEL_FONT_MIN = 10;
 const LABEL_FONT_MAX = 32;
@@ -281,12 +347,15 @@ function unicodeCodePointLabel(character) {
     : `U+${codePoint.toString(16).toUpperCase().padStart(4, "0")}`;
 }
 
+// ─── General geometry and data helpers ────────────────────────────────────
 const uid = () =>
   typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
 const snap = (value) => Math.round(value / GRID) * GRID;
+const clamp = (value, min, max) =>
+  Math.max(min, Math.min(max, value));
 
 function snapWithOffset(value, offset) {
   return Math.round((value - offset) / GRID) * GRID + offset;
@@ -345,6 +414,7 @@ function alignComponentToGrid(component) {
   };
 }
 
+// ─── Circuit symbol rendering ─────────────────────────────────────────────
 function ArrowHead({ x, y, angle = 0, scale = 1 }) {
   return (
     <path
@@ -699,15 +769,19 @@ function CircuitSymbol({
     case "buzzer":
       body = (
         <>
-          <line x1="-50" y1="0" x2="-18" y2="0" />
-          <line x1="18" y1="0" x2="50" y2="0" />
-          <line x1="-18" y1="0" x2="-18" y2="-16" />
-          <line x1="18" y1="-16" x2="18" y2="0" />
-          <line x1="-18" y1="-16" x2="18" y2="-16" />
+          <line x1="-26" y1="-42" x2="26" y2="-42" />
           <path
-            d="M -18 -16 Q 0 10 18 -16"
+            d="M -26 -42
+               C -26 -29 -22 -21 -12 -16
+               C -5 -12 5 -12 12 -16
+               C 22 -21 26 -29 26 -42"
             fill="none"
           />
+
+          <line x1="-12" y1="-16" x2="-12" y2="0" />
+          <line x1="12" y1="-16" x2="12" y2="0" />
+          <line x1="-50" y1="0" x2="-12" y2="0" />
+          <line x1="12" y1="0" x2="50" y2="0" />
         </>
       );
       break;
@@ -745,25 +819,7 @@ function CircuitSymbol({
       body = (
         <>
           <path
-            d="M -50 -27
-               L -34 -27
-               C -14 -27 -14 -20.5 -20 -13.5
-
-               C -26 -20.5 -40 -20.5 -40 -13.5
-               C -40 -6.5 -26 -6.5 -20 -13.5
-
-               C -14 -9 -14 -4 -20 0
-
-               C -26 -7 -40 -7 -40 0
-               C -40 7 -26 7 -20 0
-
-               C -14 4 -14 9 -20 13.5
-
-               C -26 6.5 -40 6.5 -40 13.5
-               C -40 20.5 -26 20.5 -20 13.5
-
-               C -14 20.5 -14 27 -34 27
-               L -50 27"
+            d={TRANSFORMER_WINDING_PATH_D}
             fill="none"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -771,37 +827,20 @@ function CircuitSymbol({
 
           <line
             x1="-5"
-            y1="-34"
+            y1={-TRANSFORMER_CORE_HALF_HEIGHT}
             x2="-5"
-            y2="34"
+            y2={TRANSFORMER_CORE_HALF_HEIGHT}
           />
           <line
             x1="5"
-            y1="-34"
+            y1={-TRANSFORMER_CORE_HALF_HEIGHT}
             x2="5"
-            y2="34"
+            y2={TRANSFORMER_CORE_HALF_HEIGHT}
           />
 
           <path
-            d="M 50 -27
-               L 34 -27
-               C 14 -27 14 -20.5 20 -13.5
-
-               C 26 -20.5 40 -20.5 40 -13.5
-               C 40 -6.5 26 -6.5 20 -13.5
-
-               C 14 -9 14 -4 20 0
-
-               C 26 -7 40 -7 40 0
-               C 40 7 26 7 20 0
-
-               C 14 4 14 9 20 13.5
-
-               C 26 6.5 40 6.5 40 13.5
-               C 40 20.5 26 20.5 20 13.5
-
-               C 14 20.5 14 27 34 27
-               L 50 27"
+            d={TRANSFORMER_WINDING_PATH_D}
+            transform="scale(-1 1)"
             fill="none"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -960,12 +999,10 @@ function CircuitSymbol({
 
     case "potentiometer": {
       const wiperEndY = verticalFlip ? -40 : 40;
-      const wiperCornerX = Math.max(
+      const wiperCornerX = clamp(
+        wiperOffset,
         POTENTIOMETER_WIPER_OFFSET_MIN,
-        Math.min(
-          POTENTIOMETER_WIPER_OFFSET_MAX,
-          wiperOffset
-        )
+        POTENTIOMETER_WIPER_OFFSET_MAX
       );
 
       body = (
@@ -1043,6 +1080,27 @@ function CircuitSymbol({
   return <g {...common}>{body}</g>;
 }
 
+function PaletteSymbolButton({
+  symbol,
+  onAdd,
+  onDragStart,
+}) {
+  return (
+    <button
+      className="palette-item"
+      draggable
+      onDragStart={(event) =>
+        onDragStart(event, symbol.type)
+      }
+      onClick={() => onAdd(symbol.type)}
+      title={`Add ${symbol.label}`}
+    >
+      <PaletteIcon type={symbol.type} />
+      <span>{symbol.label}</span>
+    </button>
+  );
+}
+
 function PaletteIcon({ type }) {
   return (
     <svg
@@ -1072,14 +1130,13 @@ function PaletteIcon({ type }) {
   );
 }
 
+// ─── Labels and component geometry ────────────────────────────────────────
 function getPotentiometerWiperOffset(component) {
-  return Math.max(
+  return clamp(
+    component?.wiperOffset ??
+      POTENTIOMETER_WIPER_OFFSET_DEFAULT,
     POTENTIOMETER_WIPER_OFFSET_MIN,
-    Math.min(
-      POTENTIOMETER_WIPER_OFFSET_MAX,
-      component?.wiperOffset ??
-        POTENTIOMETER_WIPER_OFFSET_DEFAULT
-    )
+    POTENTIOMETER_WIPER_OFFSET_MAX
   );
 }
 
@@ -1113,13 +1170,13 @@ function getComponentLabelExtent(component, position) {
     case "motor":
       return 22;
     case "buzzer":
-      return 20;
+      return position === "above" ? 42 : 0;
     case "microphone":
       return 29;
     case "solenoid":
       return 10;
     case "transformer":
-      return 34;
+      return TRANSFORMER_CORE_HALF_HEIGHT;
     case "ground":
       return position === "above" ? 50 : 26;
     case "fuse":
@@ -1427,6 +1484,7 @@ function getComponentLabelLayout(component) {
   };
 }
 
+// ─── Electrical ports and lead geometry ───────────────────────────────────
 function getComponentPortDistance(component) {
   if (component.type === "junction") {
     return 0;
@@ -1445,9 +1503,10 @@ function getComponentPortDistance(component) {
   }
 
   if (component.type === "cell") {
-    const count = Math.max(
+    const count = clamp(
+      component.cellCount ?? 1,
       CELL_COUNT_MIN,
-      Math.min(CELL_COUNT_MAX, component.cellCount ?? 1)
+      CELL_COUNT_MAX
     );
 
     return (
@@ -1460,44 +1519,10 @@ function getComponentPortDistance(component) {
 }
 
 function getComponentPorts(component) {
-  if (component.type === "label") {
-    return [];
-  }
-
-  if (component.type === "junction") {
-    return ["node"];
-  }
-
-  if (component.type === "potential-divider") {
-    return ["left", "right", "tap"];
-  }
-
-  if (component.type === "switch-two-way") {
-    return ["common", "upper", "lower"];
-  }
-
-  if (component.type === "microphone") {
-    return ["upper", "lower"];
-  }
-
-  if (component.type === "potentiometer") {
-    return ["top", "bottom", "wiper"];
-  }
-
-  if (component.type === "transformer") {
-    return [
-      "primaryTop",
-      "primaryBottom",
-      "secondaryTop",
-      "secondaryBottom",
-    ];
-  }
-
-  if (component.type === "ground") {
-    return ["top"];
-  }
-
-  return ["left", "right"];
+  return (
+    COMPONENT_PORTS_BY_TYPE[component.type] ??
+    DEFAULT_COMPONENT_PORTS
+  );
 }
 
 function getPortLocalPosition(component, port) {
@@ -1555,7 +1580,7 @@ function getPortLocalPosition(component, port) {
 
     return {
       x: isPrimary ? -PORT_DISTANCE : PORT_DISTANCE,
-      y: isTop ? -27 : 27,
+      y: isTop ? -TRANSFORMER_TERMINAL_Y : TRANSFORMER_TERMINAL_Y,
     };
   }
 
@@ -1585,7 +1610,7 @@ function getStraightLeadLength(component, port) {
     case "motor":
       return 28;
     case "buzzer":
-      return 32;
+      return 38;
     case "microphone":
       return 32;
     case "solenoid":
@@ -2032,29 +2057,10 @@ function getComponentConnectionDetails(
   return connections;
 }
 
-function getConnectedPorts(
-  component,
-  allComponents,
-  allWires
-) {
-  return [
-    ...new Set(
-      getComponentConnectionDetails(
-        component,
-        allComponents,
-        allWires
-      ).map((connection) => connection.ownPort)
-    ),
-  ];
-}
-
 function rotateComponentAroundPort(component, port) {
   const fixedPosition = getPortPosition(component, port);
-  const rotatesGenericLabel = ![
-    "label",
-    "wire-segment",
-    "potential-divider",
-  ].includes(component.type);
+  const rotatesGenericLabel =
+    !GENERIC_LABEL_ROTATION_EXCLUSIONS.has(component.type);
   const rotated = {
     ...component,
     rotation: (component.rotation + 90) % 360,
@@ -2245,6 +2251,7 @@ function snapComponentToNearbyTerminal(component, allComponents) {
   };
 }
 
+// ─── Wire routing and junction geometry ───────────────────────────────────
 function directionToKey(direction) {
   if (!direction) return null;
   if (direction.x === 1) return "right";
@@ -2585,7 +2592,7 @@ function closestPointOnSegment(point, from, to) {
     ((point.x - from.x) * dx +
       (point.y - from.y) * dy) /
     lengthSquared;
-  const t = Math.max(0, Math.min(1, rawT));
+  const t = clamp(rawT, 0, 1);
 
   return {
     x: from.x + dx * t,
@@ -3455,6 +3462,7 @@ function rotateDirectionKeyClockwise(key) {
   return key;
 }
 
+// ─── Selection geometry and snapshot helpers ──────────────────────────────
 function getComponentMarqueeBounds(component) {
   const portDistance = getComponentPortDistance(component);
   const isWireSegment = component.type === "wire-segment";
@@ -3533,11 +3541,32 @@ function componentTouchesMarquee(component, marquee) {
   );
 }
 
+function cloneComponent(component) {
+  return { ...component };
+}
+
+function cloneWire(wire) {
+  return {
+    ...wire,
+    from: { ...wire.from },
+    to: { ...wire.to },
+  };
+}
+
+function cloneCircuitSnapshot(sourceComponents, sourceWires) {
+  return {
+    components: sourceComponents.map(cloneComponent),
+    wires: sourceWires.map(cloneWire),
+  };
+}
+
+// ─── Editor application ───────────────────────────────────────────────────
 function App() {
   useEffect(() => {
     document.title = "Circuit Drawer";
   }, []);
 
+  // Refs hold transient gesture state that should not trigger renders.
   const svgRef = useRef(null);
   const canvasViewportRef = useRef(null);
   const zoomRef = useRef(DEFAULT_ZOOM);
@@ -3564,6 +3593,7 @@ function App() {
     end: 0,
   });
 
+  // Persistent circuit state and editor UI state.
   const [components, setComponents] = useState([]);
   const [wires, setWires] = useState([]);
   const [undoHistory, setUndoHistory] = useState([]);
@@ -3597,6 +3627,7 @@ function App() {
     ? 'Georgia, "Times New Roman", serif'
     : "Arial, sans-serif";
 
+  // Derived state.
   const componentMap = useMemo(
     () => new Map(components.map((component) => [component.id, component])),
     [components]
@@ -3611,7 +3642,6 @@ function App() {
       ),
     [components, wires, componentMap]
   );
-
 
   const selectedComponents = useMemo(
     () =>
@@ -3683,20 +3713,15 @@ function App() {
     return from.x !== to.x && from.y !== to.y;
   })();
 
+  // ── Undo snapshots ──────────────────────────────────────────────────────
   function makeUndoSnapshot(
     sourceComponents = components,
     sourceWires = wires
   ) {
-    return {
-      components: sourceComponents.map((component) => ({
-        ...component,
-      })),
-      wires: sourceWires.map((wire) => ({
-        ...wire,
-        from: { ...wire.from },
-        to: { ...wire.to },
-      })),
-    };
+    return cloneCircuitSnapshot(
+      sourceComponents,
+      sourceWires
+    );
   }
 
   function rememberUndo(snapshot = makeUndoSnapshot()) {
@@ -3711,16 +3736,8 @@ function App() {
 
     const snapshot = undoHistory[undoHistory.length - 1];
 
-    setComponents(
-      snapshot.components.map((component) => ({ ...component }))
-    );
-    setWires(
-      snapshot.wires.map((wire) => ({
-        ...wire,
-        from: { ...wire.from },
-        to: { ...wire.to },
-      }))
-    );
+    setComponents(snapshot.components.map(cloneComponent));
+    setWires(snapshot.wires.map(cloneWire));
     setUndoHistory((current) => current.slice(0, -1));
 
     // Selection and in-progress gestures are transient editor state. Clearing
@@ -3763,6 +3780,7 @@ function App() {
     });
   }
 
+  // ── Canvas coordinates and component creation ──────────────────────────
   function clientPointToSvg(clientX, clientY) {
     const svg = svgRef.current;
     if (!svg) return null;
@@ -3980,6 +3998,7 @@ function App() {
     addComponent(type, point.x, point.y);
   }
 
+  // ── Pointer gestures and selection ─────────────────────────────────────
   function startComponentDrag(event, component) {
     event.stopPropagation();
 
@@ -5021,13 +5040,7 @@ function App() {
 
       if (wireSegmentResize.bodyAttachments.length) {
         setWires(
-          wireSegmentResize.undoSnapshot.wires.map(
-            (wire) => ({
-              ...wire,
-              from: { ...wire.from },
-              to: { ...wire.to },
-            })
-          )
+          wireSegmentResize.undoSnapshot.wires.map(cloneWire)
         );
       }
 
@@ -5045,22 +5058,15 @@ function App() {
     // fixed-wire metadata as well as the visible selected components.
     if (drag.started) {
       setComponents(
-        drag.undoSnapshot.components.map(
-          (component) => ({ ...component })
-        )
+        drag.undoSnapshot.components.map(cloneComponent)
       );
-      setWires(
-        drag.undoSnapshot.wires.map((wire) => ({
-          ...wire,
-          from: { ...wire.from },
-          to: { ...wire.to },
-        }))
-      );
+      setWires(drag.undoSnapshot.wires.map(cloneWire));
     }
 
     dragRef.current = null;
   }
 
+  // ── Wire-tool construction and branching ───────────────────────────────
   function buildWireToEndpoint(
     endpoint,
     { allowCShape = true } = {}
@@ -5503,6 +5509,7 @@ function App() {
     finishWireToEndpoint(endpoint);
   }
 
+  // ── Selection actions and component editing ────────────────────────────
   function setSelectedDrawnWireCurrentArrow(currentArrow) {
     if (!selectedWire) return;
 
@@ -5722,18 +5729,13 @@ function App() {
             // need their own local orientation changed, but both still move
             // around the group centre.
             rotation:
-              ["label", "junction"].includes(
+              GROUP_LOCAL_ROTATION_EXCLUSIONS.has(
                 component.type
               )
                 ? component.rotation
                 : (component.rotation + 90) % 360,
             labelPosition:
-              ![
-                "label",
-                "junction",
-                "wire-segment",
-                "potential-divider",
-              ].includes(component.type)
+              !GROUP_LABEL_ROTATION_EXCLUSIONS.has(component.type)
                 ? rotateLabelPositionClockwise(
                     component.labelPosition ?? "below"
                   )
@@ -5930,11 +5932,8 @@ function App() {
     const rotatedCandidate = {
       ...component,
       rotation: (component.rotation + 90) % 360,
-      labelPosition: ![
-        "label",
-        "wire-segment",
-        "potential-divider",
-      ].includes(component.type)
+      labelPosition:
+        !GENERIC_LABEL_ROTATION_EXCLUSIONS.has(component.type)
         ? rotateLabelPositionClockwise(
             component.labelPosition ?? "below"
           )
@@ -5974,9 +5973,7 @@ function App() {
   function setSelectedSwitchState(state) {
     if (
       !selectedComponent ||
-      !["switch-open", "switch-closed"].includes(
-        selectedComponent.type
-      )
+      !BINARY_SWITCH_TYPES.has(selectedComponent.type)
     ) {
       return;
     }
@@ -6083,13 +6080,11 @@ function App() {
 
     const currentOffset =
       getPotentiometerWiperOffset(selectedComponent);
-    const nextOffset = Math.max(
+    const nextOffset = clamp(
+      currentOffset +
+        direction * POTENTIOMETER_WIPER_OFFSET_STEP,
       POTENTIOMETER_WIPER_OFFSET_MIN,
-      Math.min(
-        POTENTIOMETER_WIPER_OFFSET_MAX,
-        currentOffset +
-          direction * POTENTIOMETER_WIPER_OFFSET_STEP
-      )
+      POTENTIOMETER_WIPER_OFFSET_MAX
     );
 
     if (nextOffset === currentOffset) return;
@@ -6107,7 +6102,7 @@ function App() {
   function setSelectedPolarityMark(showPolarity) {
     if (
       !selectedComponent ||
-      !["cell", "battery"].includes(selectedComponent.type)
+      !POLARITY_COMPONENT_TYPES.has(selectedComponent.type)
     ) {
       return;
     }
@@ -6309,8 +6304,8 @@ function App() {
         ? input.selectionEnd ?? start
         : remembered.end;
 
-    const safeStart = Math.max(0, Math.min(start, label.length));
-    const safeEnd = Math.max(safeStart, Math.min(end, label.length));
+    const safeStart = clamp(start, 0, label.length);
+    const safeEnd = clamp(end, safeStart, label.length);
     const nextLabel =
       label.slice(0, safeStart) + character + label.slice(safeEnd);
     const nextCursor = safeStart + character.length;
@@ -6398,6 +6393,7 @@ function App() {
     setUnicodeCodePoint("");
   }
 
+  // ── View, export and output helpers ─────────────────────────────────────
   function clearCanvas() {
     if (!components.length && !wires.length) return;
 
@@ -6843,6 +6839,7 @@ function App() {
     });
   }
 
+  // ── Browser input effects ───────────────────────────────────────────────
   useEffect(() => {
     const viewport = canvasViewportRef.current;
     if (!viewport) return;
@@ -7059,6 +7056,7 @@ function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   });
 
+  // ── Render-only derived values ──────────────────────────────────────────
   const connectorsVisible =
     showBlueConnectors || mode === "wire";
   // Keep editor connector dots the same apparent size on screen at every
@@ -7297,19 +7295,12 @@ function App() {
 
             <div className="palette-grid">
               {BASIC_SYMBOLS.map((symbol) => (
-                <button
+                <PaletteSymbolButton
                   key={symbol.type}
-                  className="palette-item"
-                  draggable
-                  onDragStart={(event) =>
-                    handlePaletteDragStart(event, symbol.type)
-                  }
-                  onClick={() => addComponent(symbol.type)}
-                  title={`Add ${symbol.label}`}
-                >
-                  <PaletteIcon type={symbol.type} />
-                  <span>{symbol.label}</span>
-                </button>
+                  symbol={symbol}
+                  onAdd={addComponent}
+                  onDragStart={handlePaletteDragStart}
+                />
               ))}
             </div>
 
@@ -7320,48 +7311,26 @@ function App() {
                 borderTop: "1px solid #d7e4f1",
               }}
             >
-              <div
+              <h3
                 style={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  justifyContent: "space-between",
-                  gap: "8px",
                   margin: "0 4px 9px",
+                  fontSize: "13px",
+                  color: "#334155",
+                  fontWeight: 700,
+                  letterSpacing: "0.01em",
                 }}
               >
-                <h3
-                  style={{
-                    margin: 0,
-                    fontSize: "13px",
-                    color: "#334155",
-                    fontWeight: 700,
-                    letterSpacing: "0.01em",
-                  }}
-                >
-                  Advanced symbols
-                </h3>
-              </div>
+                Advanced symbols
+              </h3>
 
               <div className="palette-grid">
                 {ADVANCED_SYMBOLS.map((symbol) => (
-                  <button
+                  <PaletteSymbolButton
                     key={symbol.type}
-                    className="palette-item"
-                    draggable
-                    onDragStart={(event) =>
-                      handlePaletteDragStart(
-                        event,
-                        symbol.type
-                      )
-                    }
-                    onClick={() =>
-                      addComponent(symbol.type)
-                    }
-                    title={`Add ${symbol.label}`}
-                  >
-                    <PaletteIcon type={symbol.type} />
-                    <span>{symbol.label}</span>
-                  </button>
+                    symbol={symbol}
+                    onAdd={addComponent}
+                    onDragStart={handlePaletteDragStart}
+                  />
                 ))}
               </div>
             </div>
@@ -8137,14 +8106,14 @@ function App() {
                           hit: {
                             left: 55,
                             right: 55,
-                            top: 27,
-                            bottom: 27,
+                            top: 47,
+                            bottom: 7,
                           },
                           selection: {
                             left: 53,
                             right: 53,
-                            top: 25,
-                            bottom: 25,
+                            top: 45,
+                            bottom: 5,
                           },
                         };
                       case "microphone":
@@ -8348,10 +8317,9 @@ function App() {
 
                         {component.type !== "label" &&
                           component.type !== "potentiometer" &&
-                          component.type !== "transformer" &&
-                          component.type !== "ground" &&
-                          component.type !== "switch-two-way" &&
-                          component.type !== "microphone" && (
+                          !CUSTOM_CONNECTOR_COMPONENT_TYPES.has(
+                            component.type
+                          ) && (
                           <>
                             {mode === "wire" && (
                               <>
@@ -8509,7 +8477,7 @@ function App() {
                                   ? "auto"
                                   : "none",
                               }}
-                                onPointerDown={(event) =>
+                              onPointerDown={(event) =>
                                   handlePortClick(
                                     event,
                                     component.id,
@@ -8521,12 +8489,9 @@ function App() {
                           </>
                         )}
 
-                        {[
-                          "transformer",
-                          "ground",
-                          "switch-two-way",
-                          "microphone",
-                        ].includes(component.type) && (
+                        {CUSTOM_CONNECTOR_COMPONENT_TYPES.has(
+                          component.type
+                        ) && (
                           <>
                             {mode === "wire" &&
                               getComponentPorts(component).map(
@@ -9021,15 +8986,13 @@ function App() {
                 </div>
               ) : (
                 <p className="selected-name">
-                  {
-                    SYMBOLS.find(
-                      (symbol) => symbol.type === selectedComponent.type
-                    )?.label
-                  }
+                  {SYMBOL_LABEL_BY_TYPE.get(
+                    selectedComponent.type
+                  )}
                 </p>
               )}
 
-              {["switch-open", "switch-closed"].includes(
+              {BINARY_SWITCH_TYPES.has(
                 selectedComponent.type
               ) && (
                 <div style={{ marginBottom: "18px" }}>
