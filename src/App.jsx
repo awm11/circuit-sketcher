@@ -14,7 +14,7 @@ const POTENTIOMETER_WIPER_OFFSET_MIN = 25;
 const POTENTIOMETER_WIPER_OFFSET_MAX = 80;
 const POTENTIOMETER_WIPER_OFFSET_STEP = 5;
 const DEFAULT_C_WIRE_OFFSET = 50;
-const MIN_C_WIRE_OFFSET = 10;
+const MIN_C_WIRE_OFFSET = 0;
 const DEFAULT_ZOOM = 1.5;
 const ZOOM_MIN = 0.65;
 const ZOOM_MAX = 3;
@@ -22,22 +22,46 @@ const ZOOM_STEP = 0.15;
 const WIRE_TOOL_SNAP_RADIUS = 20;
 const BLACK_JUNCTION_SNAP_RADIUS = 22;
 const WIRE_TOOL_HIT_WIDTH = GRID * 1.4;
+const WIRE_TOOL_ARROW_SHORT_SEGMENT_MAX = GRID * 3;
 const UNDO_LIMIT = 100;
 const DEFAULT_WIRE_COMPONENT_LENGTH = 100;
-const MIN_WIRE_COMPONENT_LENGTH = 20;
+const MIN_WIRE_COMPONENT_LENGTH = GRID;
 const CELL_COUNT_MIN = 1;
 const CELL_COUNT_MAX = 8;
 const CELL_GROUP_SPACING = 20;
 const CELL_PLATE_OFFSET = 5;
 
-const SYMBOLS = [
+const INDUCTOR_PATH_D = `M -50 0
+  L -40 0
+
+  C -34 -13 -30 -13 -26 -7
+  C -20 -1 -20 13 -26 13
+  C -32 13 -32 -1 -26 -7
+
+  C -20 -13 -14 -13 -8 -7
+  C -2 -1 -2 13 -8 13
+  C -14 13 -14 -1 -8 -7
+
+  C -2 -13 4 -13 10 -7
+  C 16 -1 16 13 10 13
+  C 4 13 4 -1 10 -7
+
+  C 16 -13 22 -13 28 -7
+  C 34 -1 34 13 28 13
+  C 22 13 22 -1 28 -7
+
+  C 34 -13 38 -13 40 0
+  L 50 0`;
+
+const BASIC_SYMBOLS = [
   { type: "lamp", label: "Lamp" },
   { type: "cell", label: "Cell" },
   { type: "battery", label: "Battery" },
   { type: "voltmeter", label: "Voltmeter" },
   { type: "ammeter", label: "Ammeter" },
+  { type: "motor", label: "Motor" },
+  { type: "buzzer", label: "Buzzer" },
   { type: "resistor", label: "Resistor" },
-  { type: "capacitor", label: "Capacitor" },
   { type: "fuse", label: "Fuse" },
   { type: "wire-segment", label: "Wire" },
   { type: "label", label: "Label" },
@@ -48,8 +72,22 @@ const SYMBOLS = [
   { type: "variable-resistor", label: "Variable resistor" },
   { type: "thermistor", label: "Thermistor" },
   { type: "ldr", label: "LDR" },
+];
+
+const ADVANCED_SYMBOLS = [
+  { type: "capacitor", label: "Capacitor" },
+  { type: "switch-two-way", label: "Two-way switch" },
   { type: "potential-divider", label: "Potential divider" },
   { type: "potentiometer", label: "Potentiometer" },
+  { type: "transformer", label: "Transformer" },
+  { type: "microphone", label: "Microphone" },
+  { type: "solenoid", label: "Inductor" },
+  { type: "ground", label: "Earth / ground" },
+];
+
+const SYMBOLS = [
+  ...BASIC_SYMBOLS,
+  ...ADVANCED_SYMBOLS,
 ];
 
 const LABEL_POSITIONS = [
@@ -103,8 +141,145 @@ const LABEL_CHARACTERS = [
   { character: "₂", name: "subscript 2" },
   { character: "₃", name: "subscript 3" },
   { character: "₄", name: "subscript 4" },
-  { character: "₅", name: "subscript 5" },
 ];
+
+const UNICODE_CATEGORIES = [
+  "Greek",
+  "Maths & science",
+  "Arrows",
+  "Superscripts",
+  "Subscripts",
+  "Punctuation & marks",
+  "Currency",
+];
+
+const UNICODE_CHARACTERS = [
+  // Greek
+  { character: "α", name: "Greek small alpha", category: "Greek" },
+  { character: "β", name: "Greek small beta", category: "Greek" },
+  { character: "γ", name: "Greek small gamma", category: "Greek" },
+  { character: "δ", name: "Greek small delta", category: "Greek" },
+  { character: "ε", name: "Greek small epsilon", category: "Greek" },
+  { character: "ζ", name: "Greek small zeta", category: "Greek" },
+  { character: "η", name: "Greek small eta", category: "Greek" },
+  { character: "θ", name: "Greek small theta", category: "Greek" },
+  { character: "ι", name: "Greek small iota", category: "Greek" },
+  { character: "κ", name: "Greek small kappa", category: "Greek" },
+  { character: "λ", name: "Greek small lambda", category: "Greek" },
+  { character: "μ", name: "Greek small mu", category: "Greek" },
+  { character: "ν", name: "Greek small nu", category: "Greek" },
+  { character: "ξ", name: "Greek small xi", category: "Greek" },
+  { character: "π", name: "Greek small pi", category: "Greek" },
+  { character: "ρ", name: "Greek small rho", category: "Greek" },
+  { character: "σ", name: "Greek small sigma", category: "Greek" },
+  { character: "τ", name: "Greek small tau", category: "Greek" },
+  { character: "φ", name: "Greek small phi", category: "Greek" },
+  { character: "χ", name: "Greek small chi", category: "Greek" },
+  { character: "ψ", name: "Greek small psi", category: "Greek" },
+  { character: "ω", name: "Greek small omega", category: "Greek" },
+  { character: "Γ", name: "Greek capital gamma", category: "Greek" },
+  { character: "Δ", name: "Greek capital delta", category: "Greek" },
+  { character: "Θ", name: "Greek capital theta", category: "Greek" },
+  { character: "Λ", name: "Greek capital lambda", category: "Greek" },
+  { character: "Ξ", name: "Greek capital xi", category: "Greek" },
+  { character: "Π", name: "Greek capital pi", category: "Greek" },
+  { character: "Σ", name: "Greek capital sigma", category: "Greek" },
+  { character: "Φ", name: "Greek capital phi", category: "Greek" },
+  { character: "Ψ", name: "Greek capital psi", category: "Greek" },
+  { character: "Ω", name: "Greek capital omega / ohm", category: "Greek" },
+
+  // Maths & science
+  { character: "±", name: "plus-minus", category: "Maths & science" },
+  { character: "∓", name: "minus-plus", category: "Maths & science" },
+  { character: "×", name: "multiplication sign", category: "Maths & science" },
+  { character: "÷", name: "division sign", category: "Maths & science" },
+  { character: "·", name: "middle dot", category: "Maths & science" },
+  { character: "≈", name: "approximately equal", category: "Maths & science" },
+  { character: "≠", name: "not equal", category: "Maths & science" },
+  { character: "≡", name: "identical to", category: "Maths & science" },
+  { character: "≤", name: "less than or equal", category: "Maths & science" },
+  { character: "≥", name: "greater than or equal", category: "Maths & science" },
+  { character: "∞", name: "infinity", category: "Maths & science" },
+  { character: "√", name: "square root", category: "Maths & science" },
+  { character: "∝", name: "proportional to", category: "Maths & science" },
+  { character: "∑", name: "summation", category: "Maths & science" },
+  { character: "∏", name: "product", category: "Maths & science" },
+  { character: "∫", name: "integral", category: "Maths & science" },
+  { character: "∂", name: "partial differential", category: "Maths & science" },
+  { character: "∇", name: "nabla / gradient", category: "Maths & science" },
+  { character: "∠", name: "angle", category: "Maths & science" },
+  { character: "°", name: "degree", category: "Maths & science" },
+  { character: "µ", name: "micro sign", category: "Maths & science" },
+  { character: "ℓ", name: "script small l", category: "Maths & science" },
+  { character: "ℏ", name: "reduced Planck constant", category: "Maths & science" },
+  { character: "Å", name: "angstrom letter A-ring", category: "Maths & science" },
+  { character: "‰", name: "per mille", category: "Maths & science" },
+
+  // Arrows
+  { character: "←", name: "left arrow", category: "Arrows" },
+  { character: "→", name: "right arrow", category: "Arrows" },
+  { character: "↑", name: "up arrow", category: "Arrows" },
+  { character: "↓", name: "down arrow", category: "Arrows" },
+  { character: "↔", name: "left-right arrow", category: "Arrows" },
+  { character: "↕", name: "up-down arrow", category: "Arrows" },
+  { character: "⇐", name: "left double arrow", category: "Arrows" },
+  { character: "⇒", name: "right double arrow", category: "Arrows" },
+  { character: "⇔", name: "left-right double arrow", category: "Arrows" },
+
+  // Superscripts
+  { character: "⁰", name: "superscript zero", category: "Superscripts" },
+  { character: "¹", name: "superscript one", category: "Superscripts" },
+  { character: "²", name: "superscript two", category: "Superscripts" },
+  { character: "³", name: "superscript three", category: "Superscripts" },
+  { character: "⁴", name: "superscript four", category: "Superscripts" },
+  { character: "⁵", name: "superscript five", category: "Superscripts" },
+  { character: "⁶", name: "superscript six", category: "Superscripts" },
+  { character: "⁷", name: "superscript seven", category: "Superscripts" },
+  { character: "⁸", name: "superscript eight", category: "Superscripts" },
+  { character: "⁹", name: "superscript nine", category: "Superscripts" },
+  { character: "⁺", name: "superscript plus", category: "Superscripts" },
+  { character: "⁻", name: "superscript minus", category: "Superscripts" },
+
+  // Subscripts
+  { character: "₀", name: "subscript zero", category: "Subscripts" },
+  { character: "₁", name: "subscript one", category: "Subscripts" },
+  { character: "₂", name: "subscript two", category: "Subscripts" },
+  { character: "₃", name: "subscript three", category: "Subscripts" },
+  { character: "₄", name: "subscript four", category: "Subscripts" },
+  { character: "₅", name: "subscript five", category: "Subscripts" },
+  { character: "₆", name: "subscript six", category: "Subscripts" },
+  { character: "₇", name: "subscript seven", category: "Subscripts" },
+  { character: "₈", name: "subscript eight", category: "Subscripts" },
+  { character: "₉", name: "subscript nine", category: "Subscripts" },
+  { character: "₊", name: "subscript plus", category: "Subscripts" },
+  { character: "₋", name: "subscript minus", category: "Subscripts" },
+
+  // Punctuation & marks
+  { character: "–", name: "en dash", category: "Punctuation & marks" },
+  { character: "—", name: "em dash", category: "Punctuation & marks" },
+  { character: "′", name: "prime", category: "Punctuation & marks" },
+  { character: "″", name: "double prime", category: "Punctuation & marks" },
+  { character: "•", name: "bullet", category: "Punctuation & marks" },
+  { character: "…", name: "ellipsis", category: "Punctuation & marks" },
+  { character: "©", name: "copyright", category: "Punctuation & marks" },
+  { character: "®", name: "registered trademark", category: "Punctuation & marks" },
+  { character: "™", name: "trademark", category: "Punctuation & marks" },
+  { character: "§", name: "section sign", category: "Punctuation & marks" },
+
+  // Currency
+  { character: "£", name: "pound sterling", category: "Currency" },
+  { character: "€", name: "euro", category: "Currency" },
+  { character: "$", name: "dollar", category: "Currency" },
+  { character: "¥", name: "yen", category: "Currency" },
+  { character: "¢", name: "cent", category: "Currency" },
+];
+
+function unicodeCodePointLabel(character) {
+  const codePoint = character.codePointAt(0);
+  return codePoint == null
+    ? ""
+    : `U+${codePoint.toString(16).toUpperCase().padStart(4, "0")}`;
+}
 
 const uid = () =>
   typeof crypto !== "undefined" && crypto.randomUUID
@@ -197,6 +372,7 @@ function CircuitSymbol({
   showPolarity = true,
   verticalFlip = false,
   wiperOffset = POTENTIOMETER_WIPER_OFFSET_DEFAULT,
+  switchPosition = "upper",
   currentArrow = "none",
   currentArrowOffset = 0,
   componentRotation = 0,
@@ -278,6 +454,32 @@ function CircuitSymbol({
         </>
       );
       break;
+
+    case "switch-two-way": {
+      const targetY =
+        switchPosition === "lower" ? 20 : -20;
+
+      body = (
+        <>
+          <line x1="-50" y1="0" x2="-24" y2="0" />
+          <circle cx="-20" cy="0" r="4" fill="none" />
+
+          <circle cx="20" cy="-20" r="4" fill="none" />
+          <line x1="24" y1="-20" x2="50" y2="-20" />
+
+          <circle cx="20" cy="20" r="4" fill="none" />
+          <line x1="24" y1="20" x2="50" y2="20" />
+
+          <line
+            x1="-16"
+            y1="0"
+            x2="16"
+            y2={targetY + (targetY < 0 ? 3 : -3)}
+          />
+        </>
+      );
+      break;
+    }
 
     case "cell": {
       const count = Math.max(
@@ -471,6 +673,154 @@ function CircuitSymbol({
       );
       break;
 
+    case "motor":
+      body = (
+        <>
+          <line x1="-50" y1="0" x2="-22" y2="0" />
+          <line x1="22" y1="0" x2="50" y2="0" />
+          <circle cx="0" cy="0" r="22" fill="none" />
+          <text
+            x="0"
+            y="6"
+            textAnchor="middle"
+            fontSize="18"
+            fill="currentColor"
+            stroke="none"
+            fontFamily={textFontFamily}
+            style={fancyTextStyle}
+            transform={`rotate(${-componentRotation})`}
+          >
+            M
+          </text>
+        </>
+      );
+      break;
+
+    case "buzzer":
+      body = (
+        <>
+          <line x1="-50" y1="0" x2="-18" y2="0" />
+          <line x1="18" y1="0" x2="50" y2="0" />
+          <line x1="-18" y1="0" x2="-18" y2="-16" />
+          <line x1="18" y1="-16" x2="18" y2="0" />
+          <line x1="-18" y1="-16" x2="18" y2="-16" />
+          <path
+            d="M -18 -16 Q 0 10 18 -16"
+            fill="none"
+          />
+        </>
+      );
+      break;
+
+    case "microphone":
+      body = (
+        <>
+          <circle cx="-5" cy="0" r="26" fill="none" />
+          <line
+            x1="-30"
+            y1="-29"
+            x2="-30"
+            y2="29"
+            strokeWidth="4"
+            strokeLinecap="butt"
+          />
+          <line x1="18" y1="-12" x2="50" y2="-12" />
+          <line x1="18" y1="12" x2="50" y2="12" />
+        </>
+      );
+      break;
+
+    case "solenoid":
+      body = (
+        <path
+          d={INDUCTOR_PATH_D}
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      );
+      break;
+
+    case "transformer":
+      body = (
+        <>
+          <path
+            d="M -50 -27
+               L -34 -27
+               C -14 -27 -14 -20.5 -20 -13.5
+
+               C -26 -20.5 -40 -20.5 -40 -13.5
+               C -40 -6.5 -26 -6.5 -20 -13.5
+
+               C -14 -9 -14 -4 -20 0
+
+               C -26 -7 -40 -7 -40 0
+               C -40 7 -26 7 -20 0
+
+               C -14 4 -14 9 -20 13.5
+
+               C -26 6.5 -40 6.5 -40 13.5
+               C -40 20.5 -26 20.5 -20 13.5
+
+               C -14 20.5 -14 27 -34 27
+               L -50 27"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+
+          <line
+            x1="-5"
+            y1="-34"
+            x2="-5"
+            y2="34"
+          />
+          <line
+            x1="5"
+            y1="-34"
+            x2="5"
+            y2="34"
+          />
+
+          <path
+            d="M 50 -27
+               L 34 -27
+               C 14 -27 14 -20.5 20 -13.5
+
+               C 26 -20.5 40 -20.5 40 -13.5
+               C 40 -6.5 26 -6.5 20 -13.5
+
+               C 14 -9 14 -4 20 0
+
+               C 26 -7 40 -7 40 0
+               C 40 7 26 7 20 0
+
+               C 14 4 14 9 20 13.5
+
+               C 26 6.5 40 6.5 40 13.5
+               C 40 20.5 26 20.5 20 13.5
+
+               C 14 20.5 14 27 34 27
+               L 50 27"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </>
+      );
+      break;
+
+    case "ground":
+      body = (
+        <>
+          <line x1="0" y1="-50" x2="0" y2="8" />
+          <line x1="-18" y1="8" x2="18" y2="8" />
+          <line x1="-12" y1="16" x2="12" y2="16" />
+          <line x1="-6" y1="24" x2="6" y2="24" />
+        </>
+      );
+      break;
+
     case "fuse":
       body = (
         <>
@@ -648,7 +998,7 @@ function CircuitSymbol({
           <line x1="-50" y1="0" x2="-25" y2="0" />
           <rect x="-25" y="-11" width="50" height="22" fill="none" />
           <line x1="25" y1="0" x2="50" y2="0" />
-          <polyline points="-31,28 -17,28 28,-30" />
+          <polyline points="-28,22 -17,22 24,-22" />
         </>
       );
       break;
@@ -735,6 +1085,10 @@ function getPotentiometerWiperOffset(component) {
 
 function getComponentLabelExtent(component, position) {
   if (position === "left" || position === "right") {
+    if (component.type === "ground") {
+      return 20;
+    }
+
     // Side labels sit just beyond the electrical terminal. This also grows
     // automatically for long Wire components and multi-cell components.
     return getComponentPortDistance(component);
@@ -747,6 +1101,8 @@ function getComponentLabelExtent(component, position) {
       return position === "above" ? 24 : 8;
     case "switch-closed":
       return 8;
+    case "switch-two-way":
+      return 24;
     case "cell":
       return 24;
     case "battery":
@@ -754,7 +1110,18 @@ function getComponentLabelExtent(component, position) {
     case "capacitor":
       return 24;
     case "lamp":
+    case "motor":
       return 22;
+    case "buzzer":
+      return 20;
+    case "microphone":
+      return 29;
+    case "solenoid":
+      return 10;
+    case "transformer":
+      return 34;
+    case "ground":
+      return position === "above" ? 50 : 26;
     case "fuse":
       return 10;
     case "voltmeter":
@@ -767,8 +1134,9 @@ function getComponentLabelExtent(component, position) {
     case "potential-divider":
       return position === "below" ? POTENTIAL_DIVIDER_TAP_LENGTH : 11;
     case "variable-resistor":
-    case "thermistor":
       return 31;
+    case "thermistor":
+      return 23;
     case "potentiometer":
       if (position === "right") {
         return getPotentiometerWiperOffset(component);
@@ -1104,8 +1472,29 @@ function getComponentPorts(component) {
     return ["left", "right", "tap"];
   }
 
+  if (component.type === "switch-two-way") {
+    return ["common", "upper", "lower"];
+  }
+
+  if (component.type === "microphone") {
+    return ["upper", "lower"];
+  }
+
   if (component.type === "potentiometer") {
     return ["top", "bottom", "wiper"];
+  }
+
+  if (component.type === "transformer") {
+    return [
+      "primaryTop",
+      "primaryBottom",
+      "secondaryTop",
+      "secondaryBottom",
+    ];
+  }
+
+  if (component.type === "ground") {
+    return ["top"];
   }
 
   return ["left", "right"];
@@ -1125,6 +1514,24 @@ function getPortLocalPosition(component, port) {
     return { x: 0, y: POTENTIAL_DIVIDER_TAP_LENGTH };
   }
 
+  if (component.type === "switch-two-way") {
+    if (port === "common") {
+      return { x: -PORT_DISTANCE, y: 0 };
+    }
+
+    return {
+      x: PORT_DISTANCE,
+      y: port === "lower" ? 20 : -20,
+    };
+  }
+
+  if (component.type === "microphone") {
+    return {
+      x: PORT_DISTANCE,
+      y: port === "lower" ? 12 : -12,
+    };
+  }
+
   if (component.type === "potentiometer") {
     if (port === "top") {
       return { x: 0, y: -PORT_DISTANCE };
@@ -1142,6 +1549,20 @@ function getPortLocalPosition(component, port) {
     }
   }
 
+  if (component.type === "transformer") {
+    const isPrimary = port.startsWith("primary");
+    const isTop = port.endsWith("Top");
+
+    return {
+      x: isPrimary ? -PORT_DISTANCE : PORT_DISTANCE,
+      y: isTop ? -27 : 27,
+    };
+  }
+
+  if (component.type === "ground") {
+    return { x: 0, y: -PORT_DISTANCE };
+  }
+
   return {
     x: port === "left" ? -portDistance : portDistance,
     y: 0,
@@ -1152,6 +1573,7 @@ function getStraightLeadLength(component, port) {
   switch (component.type) {
     case "switch-open":
     case "switch-closed":
+    case "switch-two-way":
       return 26;
     case "cell":
       return 45;
@@ -1160,7 +1582,18 @@ function getStraightLeadLength(component, port) {
     case "capacitor":
       return 42;
     case "lamp":
+    case "motor":
       return 28;
+    case "buzzer":
+      return 32;
+    case "microphone":
+      return 32;
+    case "solenoid":
+      return 13;
+    case "transformer":
+      return 16;
+    case "ground":
+      return 50;
     case "ammeter":
       return AMMETER_PORT_DISTANCE - METER_RADIUS;
     case "voltmeter":
@@ -1386,7 +1819,7 @@ function getDrawnWireCurrentArrows(
 
   const points = geometry.points;
   const lastSegmentIndex = points.length - 2;
-  const arrows = [];
+  const segments = [];
 
   for (let index = 0; index < points.length - 1; index += 1) {
     const from = points[index];
@@ -1424,6 +1857,86 @@ function getDrawnWireCurrentArrows(
             wire.to.leadInset
           )
         : 0;
+
+    segments.push({
+      index,
+      from,
+      to,
+      dx,
+      dy,
+      length,
+      unit,
+      startExtension,
+      endExtension,
+      visualLength:
+        length + startExtension + endExtension,
+    });
+  }
+
+  // Short-segment suppression is only for ordinary L/C Wire-tool routes.
+  // The threshold is based on the whole visible straight run, including any
+  // collinear component lead/tail that visually continues the segment.
+  // Straight wires keep their existing single-arrow behaviour, and fixed
+  // intercepted pieces keep their own stored-route behaviour.
+  const isLCShape =
+    wire.route !== "fixed" &&
+    segments.length >= 2;
+
+  let arrowSegmentIndexes = new Set(
+    segments.map((segment) => segment.index)
+  );
+
+  if (isLCShape) {
+    arrowSegmentIndexes = new Set(
+      segments
+        .filter(
+          (segment) =>
+            segment.visualLength >
+            WIRE_TOOL_ARROW_SHORT_SEGMENT_MAX
+        )
+        .map((segment) => segment.index)
+    );
+
+    // A normal L has two visible segments. A C whose arm has collapsed to
+    // zero also has two visible segments and should behave the same way.
+    // If BOTH visible runs are three grid squares or shorter, still show
+    // exactly one current arrow: choose the longer visible run, or the first
+    // one when tied.
+    if (
+      segments.length === 2 &&
+      segments.every(
+        (segment) =>
+          segment.visualLength <=
+          WIRE_TOOL_ARROW_SHORT_SEGMENT_MAX
+      )
+    ) {
+      const preferredSegment =
+        segments[1].visualLength >
+        segments[0].visualLength
+          ? segments[1]
+          : segments[0];
+
+      arrowSegmentIndexes = new Set([
+        preferredSegment.index,
+      ]);
+    }
+  }
+
+  const arrows = [];
+
+  for (const segment of segments) {
+    if (!arrowSegmentIndexes.has(segment.index)) {
+      continue;
+    }
+
+    const {
+      index,
+      from,
+      to,
+      unit,
+      startExtension,
+      endExtension,
+    } = segment;
 
     const visualStart = {
       x: from.x - unit.x * startExtension,
@@ -1577,6 +2090,13 @@ function getPortDirection(component, port) {
     localDirection = { x: 0, y: 0 };
   } else if (component.type === "potential-divider" && port === "tap") {
     localDirection = { x: 0, y: 1 };
+  } else if (component.type === "switch-two-way") {
+    localDirection = {
+      x: port === "common" ? -1 : 1,
+      y: 0,
+    };
+  } else if (component.type === "microphone") {
+    localDirection = { x: 1, y: 0 };
   } else if (component.type === "potentiometer") {
     if (port === "top") {
       localDirection = { x: 0, y: -1 };
@@ -1588,6 +2108,13 @@ function getPortDirection(component, port) {
         y: component.verticalFlip ? -1 : 1,
       };
     }
+  } else if (component.type === "transformer") {
+    localDirection = {
+      x: port.startsWith("primary") ? -1 : 1,
+      y: 0,
+    };
+  } else if (component.type === "ground") {
+    localDirection = { x: 0, y: -1 };
   } else {
     localDirection = { x: port === "left" ? -1 : 1, y: 0 };
   }
@@ -2566,6 +3093,251 @@ function makeFixedWirePiece(
   };
 }
 
+function getGroupTransformComponentIds(
+  baseIds,
+  allComponents,
+  allWires
+) {
+  const selectedIds = new Set(baseIds);
+  const transformIds = new Set(baseIds);
+  const junctionIds = new Set(
+    allComponents
+      .filter((component) => component.type === "junction")
+      .map((component) => component.id)
+  );
+
+  // Hidden junctions are not directly selectable. Treat each connected
+  // junction cluster as part of the selected group only when every visible
+  // component attached to that cluster is selected. This lets a complete
+  // intercepted network move/rotate rigidly, while a junction that is still
+  // anchored to an unselected component stays put.
+  const junctionNeighbours = new Map(
+    [...junctionIds].map((id) => [id, new Set()])
+  );
+
+  for (const wire of allWires) {
+    const fromId = wire.from.componentId;
+    const toId = wire.to.componentId;
+
+    if (
+      junctionIds.has(fromId) &&
+      junctionIds.has(toId)
+    ) {
+      junctionNeighbours.get(fromId)?.add(toId);
+      junctionNeighbours.get(toId)?.add(fromId);
+    }
+  }
+
+  const visited = new Set();
+
+  for (const startId of junctionIds) {
+    if (visited.has(startId)) continue;
+
+    const cluster = new Set();
+    const queue = [startId];
+    visited.add(startId);
+
+    while (queue.length) {
+      const junctionId = queue.shift();
+      cluster.add(junctionId);
+
+      for (
+        const neighbour of
+        junctionNeighbours.get(junctionId) ?? []
+      ) {
+        if (visited.has(neighbour)) continue;
+        visited.add(neighbour);
+        queue.push(neighbour);
+      }
+    }
+
+    const boundaryIds = new Set();
+    const fixedBackboneBoundaryIds = new Set();
+
+    for (const wire of allWires) {
+      const fromId = wire.from.componentId;
+      const toId = wire.to.componentId;
+      const fromInCluster = cluster.has(fromId);
+      const toInCluster = cluster.has(toId);
+      let outsideId = null;
+
+      if (fromInCluster && !toInCluster) {
+        outsideId = toId;
+      } else if (toInCluster && !fromInCluster) {
+        outsideId = fromId;
+      }
+
+      if (!outsideId) {
+        continue;
+      }
+
+      boundaryIds.add(outsideId);
+
+      // When a Wire-tool wire is intercepted, its two original sides become
+      // fixed pieces and the new branch is normally a non-fixed wire. The
+      // hidden nexus belongs to that fixed backbone. Therefore selecting both
+      // backbone sides should carry the nexus with them even when the branch
+      // component itself is not selected; the branch can then stretch to the
+      // moving nexus.
+      if (wire.route === "fixed") {
+        fixedBackboneBoundaryIds.add(outsideId);
+      }
+    }
+
+    const completeFixedBackboneSelected =
+      fixedBackboneBoundaryIds.size >= 2 &&
+      [...fixedBackboneBoundaryIds].every((id) =>
+        selectedIds.has(id)
+      );
+    const completeJunctionBoundarySelected =
+      boundaryIds.size > 0 &&
+      [...boundaryIds].every((id) =>
+        selectedIds.has(id)
+      );
+
+    if (
+      completeFixedBackboneSelected ||
+      completeJunctionBoundarySelected
+    ) {
+      for (const junctionId of cluster) {
+        transformIds.add(junctionId);
+      }
+    }
+  }
+
+  return transformIds;
+}
+
+function rebuildFixedWireFromPoints(wire, sourcePoints) {
+  const points = sourcePoints
+    .filter(
+      (point, index) =>
+        index === 0 ||
+        Math.hypot(
+          point.x - sourcePoints[index - 1].x,
+          point.y - sourcePoints[index - 1].y
+        ) > 0.001
+    )
+    .map((point) => ({ x: point.x, y: point.y }));
+
+  if (points.length < 2) {
+    return wire;
+  }
+
+  return {
+    ...wire,
+    route: "fixed",
+    bends: points
+      .slice(1, -1)
+      .map((point) => ({ x: point.x, y: point.y })),
+    fixedAxes: points
+      .slice(0, -1)
+      .map((point, index) =>
+        getOrthogonalSegmentAxis(
+          point,
+          points[index + 1]
+        )
+      ),
+    fixedFromPoint: {
+      x: points[0].x,
+      y: points[0].y,
+    },
+    fixedToPoint: {
+      x: points.at(-1).x,
+      y: points.at(-1).y,
+    },
+  };
+}
+
+function rebaseRigidFixedWires(
+  sourceWires,
+  componentLookup,
+  transformIds
+) {
+  return sourceWires.map((wire) => {
+    const bothEndsTransform =
+      transformIds.has(wire.from.componentId) &&
+      transformIds.has(wire.to.componentId);
+
+    if (
+      wire.route !== "fixed" ||
+      !bothEndsTransform
+    ) {
+      return wire;
+    }
+
+    const resolved = getStoredWireGeometry(
+      wire,
+      componentLookup
+    );
+
+    return resolved
+      ? rebuildFixedWireFromPoints(
+          wire,
+          resolved.geometry.points
+        )
+      : wire;
+  });
+}
+
+function translateRigidFixedWires(
+  sourceWires,
+  transformIds,
+  deltaX,
+  deltaY
+) {
+  return sourceWires.map((wire) => {
+    const bothEndsTransform =
+      transformIds.has(wire.from.componentId) &&
+      transformIds.has(wire.to.componentId);
+
+    if (
+      wire.route !== "fixed" ||
+      !bothEndsTransform
+    ) {
+      return wire;
+    }
+
+    const fromPoint = wire.fixedFromPoint;
+    const toPoint = wire.fixedToPoint;
+
+    if (!fromPoint || !toPoint) {
+      return wire;
+    }
+
+    return {
+      ...wire,
+      bends: (wire.bends ?? []).map((point) => ({
+        x: point.x + deltaX,
+        y: point.y + deltaY,
+      })),
+      fixedFromPoint: {
+        x: fromPoint.x + deltaX,
+        y: fromPoint.y + deltaY,
+      },
+      fixedToPoint: {
+        x: toPoint.x + deltaX,
+        y: toPoint.y + deltaY,
+      },
+    };
+  });
+}
+
+function rotatePointClockwiseAround(
+  point,
+  centreX,
+  centreY
+) {
+  const dx = point.x - centreX;
+  const dy = point.y - centreY;
+
+  return {
+    x: centreX - dy,
+    y: centreY + dx,
+  };
+}
+
+
 function wirePath(from, to, route = "horizontal-first") {
   return getWireGeometry(from, to, route).path;
 }
@@ -2737,125 +3509,6 @@ function getComponentMarqueeBounds(component) {
   };
 }
 
-function getComponentCollisionHalfSize(component) {
-  switch (component.type) {
-    case "switch-open":
-      return { x: 25, y: 25 };
-    case "switch-closed":
-      return { x: 25, y: 8 };
-    case "cell": {
-      const count = Math.max(
-        CELL_COUNT_MIN,
-        Math.min(CELL_COUNT_MAX, component.cellCount ?? 1)
-      );
-      return {
-        x: ((count - 1) * CELL_GROUP_SPACING) / 2 + 8,
-        y: 26,
-      };
-    }
-    case "battery":
-      return { x: 32, y: 27 };
-    case "capacitor":
-      return { x: 10, y: 26 };
-    case "lamp":
-      return { x: 24, y: 24 };
-    case "voltmeter":
-    case "ammeter":
-      return {
-        x: METER_RADIUS + 2,
-        y: METER_RADIUS + 2,
-      };
-    case "fuse":
-      return { x: 27, y: 12 };
-    case "diode":
-      return { x: 27, y: 27 };
-    case "resistor":
-      return { x: 27, y: 13 };
-    case "variable-resistor":
-    case "thermistor":
-      return { x: 32, y: 32 };
-    case "ldr":
-      return { x: 30, y: 30 };
-    case "led":
-      return { x: 28, y: 28 };
-    case "potential-divider":
-      return { x: 45, y: 11 };
-    case "potentiometer":
-      return { x: 19, y: 31 };
-    default:
-      return null;
-  }
-}
-
-function pointInComponentLocalSpace(point, component) {
-  const dx = point.x - component.x;
-  const dy = point.y - component.y;
-  const angle = (-((component.rotation ?? 0) * Math.PI)) / 180;
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle);
-
-  return {
-    x: dx * cos - dy * sin,
-    y: dx * sin + dy * cos,
-  };
-}
-
-function wireComponentOverlapsComponentBody(
-  wireComponent,
-  otherComponent
-) {
-  if (
-    wireComponent.type !== "wire-segment" ||
-    otherComponent.id === wireComponent.id ||
-    otherComponent.type === "wire-segment" ||
-    otherComponent.type === "label"
-  ) {
-    return false;
-  }
-
-  const halfSize = getComponentCollisionHalfSize(otherComponent);
-  if (!halfSize) {
-    return false;
-  }
-
-  const from = pointInComponentLocalSpace(
-    getPortPosition(wireComponent, "left"),
-    otherComponent
-  );
-  const to = pointInComponentLocalSpace(
-    getPortPosition(wireComponent, "right"),
-    otherComponent
-  );
-  const margin = 2;
-
-  const minX = Math.min(from.x, to.x);
-  const maxX = Math.max(from.x, to.x);
-  const minY = Math.min(from.y, to.y);
-  const maxY = Math.max(from.y, to.y);
-
-  return (
-    maxX >= -halfSize.x - margin &&
-    minX <= halfSize.x + margin &&
-    maxY >= -halfSize.y - margin &&
-    minY <= halfSize.y + margin
-  );
-}
-
-function wireComponentHasForbiddenOverlap(
-  wireComponent,
-  allComponents,
-  ignoredIds = new Set()
-) {
-  return allComponents.some(
-    (otherComponent) =>
-      !ignoredIds.has(otherComponent.id) &&
-      wireComponentOverlapsComponentBody(
-        wireComponent,
-        otherComponent
-      )
-  );
-}
-
 function normalizeMarquee(startX, startY, currentX, currentY) {
   return {
     left: Math.min(startX, currentX),
@@ -2881,6 +3534,10 @@ function componentTouchesMarquee(component, marquee) {
 }
 
 function App() {
+  useEffect(() => {
+    document.title = "Circuit Drawer";
+  }, []);
+
   const svgRef = useRef(null);
   const canvasViewportRef = useRef(null);
   const zoomRef = useRef(DEFAULT_ZOOM);
@@ -2927,6 +3584,13 @@ function App() {
     useState("idle");
   const [transparentBackground, setTransparentBackground] =
     useState(false);
+  const [unicodePickerOpen, setUnicodePickerOpen] =
+    useState(false);
+  const [unicodeSearch, setUnicodeSearch] = useState("");
+  const [unicodeCodePoint, setUnicodeCodePoint] =
+    useState("");
+  const [unicodeCodePointStatus, setUnicodeCodePointStatus] =
+    useState("");
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
 
   const circuitTextFontFamily = fancyText
@@ -2966,6 +3630,26 @@ function App() {
     selected?.kind === "wire"
       ? wires.find((wire) => wire.id === selected.id) ?? null
       : null;
+
+  const filteredUnicodeCharacters = useMemo(() => {
+    const query = unicodeSearch.trim().toLowerCase();
+
+    if (!query) {
+      return UNICODE_CHARACTERS;
+    }
+
+    return UNICODE_CHARACTERS.filter((entry) => {
+      const codePoint =
+        unicodeCodePointLabel(entry.character).toLowerCase();
+
+      return (
+        entry.character.includes(unicodeSearch.trim()) ||
+        entry.name.toLowerCase().includes(query) ||
+        entry.category.toLowerCase().includes(query) ||
+        codePoint.includes(query.replace(/^u\+/, ""))
+      );
+    });
+  }, [unicodeSearch]);
 
   const selectedWireCanFlip = (() => {
     if (
@@ -3258,6 +3942,9 @@ function App() {
               POTENTIOMETER_WIPER_OFFSET_DEFAULT,
           }
         : {}),
+      ...(type === "switch-two-way"
+        ? { switchPosition: "upper" }
+        : {}),
       ...(type === "wire-segment"
         ? {
             length: DEFAULT_WIRE_COMPONENT_LENGTH,
@@ -3378,7 +4065,7 @@ function App() {
 
     const componentAlreadyInSelection =
       selectedComponentIds.includes(component.id);
-    const dragIds =
+    const visibleDragIds =
       componentAlreadyInSelection && selectedComponentIds.length > 1
         ? selectedComponentIds
         : [component.id];
@@ -3390,13 +4077,34 @@ function App() {
 
     const point = svgPoint(event);
 
+    // Hidden interception junctions should travel with a complete selected
+    // network, but remain anchored if any visible component attached to their
+    // cluster is outside the selection.
+    const transformIds =
+      visibleDragIds.length > 1
+        ? getGroupTransformComponentIds(
+            visibleDragIds,
+            components,
+            wires
+          )
+        : new Set(visibleDragIds);
+    const dragIds = [...transformIds];
+    const dragComponentLookup = new Map(
+      components.map((item) => [item.id, item])
+    );
+    const transformWires = rebaseRigidFixedWires(
+      wires,
+      dragComponentLookup,
+      transformIds
+    );
+
     // Capture the pointer on the SVG so the whole group keeps following the
     // pointer even if the cursor/finger moves away from the symbols or canvas.
     svgRef.current?.setPointerCapture?.(event.pointerId);
 
     const origins = {};
     for (const item of components) {
-      if (dragIds.includes(item.id)) {
+      if (transformIds.has(item.id)) {
         origins[item.id] = { x: item.x, y: item.y };
       }
     }
@@ -3404,6 +4112,15 @@ function App() {
     dragRef.current = {
       id: component.id,
       ids: dragIds,
+      visibleIds: [...visibleDragIds],
+      transformIds,
+      transformWires,
+      hasRigidFixedWires: transformWires.some(
+        (wire) =>
+          wire.route === "fixed" &&
+          transformIds.has(wire.from.componentId) &&
+          transformIds.has(wire.to.componentId)
+      ),
       origins,
       undoSnapshot: makeUndoSnapshot(),
       pointerId: event.pointerId,
@@ -3411,6 +4128,8 @@ function App() {
       startY: point.y,
       startClientX: event.clientX,
       startClientY: event.clientY,
+      appliedDeltaX: 0,
+      appliedDeltaY: 0,
       started: false,
     };
   }
@@ -3473,9 +4192,6 @@ function App() {
       originLength: length,
       originRotation: component.rotation,
       originComponent: { ...component },
-      otherComponents: components
-        .filter((item) => item.id !== component.id)
-        .map((item) => ({ ...item })),
       bodyAttachments,
       undoSnapshot: makeUndoSnapshot(),
       changed: false,
@@ -3657,21 +4373,6 @@ function App() {
         x: (wireSegmentResize.fixedX + draggedX) / 2,
         y: (wireSegmentResize.fixedY + draggedY) / 2,
       };
-      const collisionComponents = [
-        candidate,
-        ...wireSegmentResize.otherComponents,
-      ];
-
-      if (
-        wireComponentHasForbiddenOverlap(
-          candidate,
-          collisionComponents,
-          new Set([candidate.id])
-        )
-      ) {
-        return;
-      }
-
       wireSegmentResize.changed =
         wireSegmentResize.changed ||
         Math.abs(candidate.x - originComponent.x) > 0.001 ||
@@ -4004,35 +4705,35 @@ function App() {
     drag.deltaX = deltaX;
     drag.deltaY = deltaY;
 
-    setComponents((current) => {
-      const movingIds = new Set(drag.ids);
-      const candidateComponents = current.map((component) => {
-        const origin = drag.origins[component.id];
-        return origin
-          ? {
-              ...component,
-              x: origin.x + deltaX,
-              y: origin.y + deltaY,
-            }
-          : component;
-      });
-
-      const movingWires = candidateComponents.filter(
-        (component) =>
-          movingIds.has(component.id) &&
-          component.type === "wire-segment"
+    const movingIds = drag.transformIds;
+    const candidateComponents =
+      drag.undoSnapshot.components.map(
+        (component) => {
+          const origin = drag.origins[component.id];
+          return origin
+            ? {
+                ...component,
+                x: origin.x + deltaX,
+                y: origin.y + deltaY,
+              }
+            : component;
+        }
       );
 
-      const blocked = movingWires.some((wireComponent) =>
-        wireComponentHasForbiddenOverlap(
-          wireComponent,
-          candidateComponents,
-          movingIds
+    drag.appliedDeltaX = deltaX;
+    drag.appliedDeltaY = deltaY;
+    setComponents(candidateComponents);
+
+    if (drag.hasRigidFixedWires) {
+      setWires(
+        translateRigidFixedWires(
+          drag.transformWires,
+          movingIds,
+          deltaX,
+          deltaY
         )
       );
-
-      return blocked ? current : candidateComponents;
-    });
+    }
   }
 
   function endPointerAction(event) {
@@ -4128,88 +4829,138 @@ function App() {
     if (drag.started) {
       rememberUndo(drag.undoSnapshot);
 
-      // With object snapping enabled, quantise the group using one shared
-      // correction, then allow the nearest selected terminal to magnetically
-      // snap to an unselected component. With it disabled, the smooth live
-      // drag position is already authoritative.
-      if (snapObjects) {
-        setComponents((current) => {
-        const groupIds = new Set(drag.ids);
-        const anchor = current.find((component) => component.id === drag.id);
-
-        if (!anchor) {
-          return current;
-        }
-
-        const alignedAnchor = alignComponentToGrid(anchor);
-        let correctionX = alignedAnchor.x - anchor.x;
-        let correctionY = alignedAnchor.y - anchor.y;
-
-        let working = current.map((component) =>
-          groupIds.has(component.id)
+      const groupIds = drag.transformIds;
+      const originComponents =
+        drag.undoSnapshot.components;
+      const baseDeltaX = drag.appliedDeltaX ?? 0;
+      const baseDeltaY = drag.appliedDeltaY ?? 0;
+      let finalComponents = originComponents.map(
+        (component) => {
+          const origin = drag.origins[component.id];
+          return origin
             ? {
                 ...component,
-                x: component.x + correctionX,
-                y: component.y + correctionY,
+                x: origin.x + baseDeltaX,
+                y: origin.y + baseDeltaY,
               }
-            : component
-        );
-
-        const outsideComponents = working.filter(
-          (component) => !groupIds.has(component.id)
-        );
-        let bestTerminalSnap = null;
-
-        for (const component of working) {
-          if (!groupIds.has(component.id) || component.type === "label") {
-            continue;
-          }
-
-          const snapped = snapComponentToNearbyTerminal(component, [
-            component,
-            ...outsideComponents,
-          ]);
-          const dx = snapped.x - component.x;
-          const dy = snapped.y - component.y;
-          const distance = Math.hypot(dx, dy);
-
-          if (
-            distance > 0.001 &&
-            (!bestTerminalSnap || distance < bestTerminalSnap.distance)
-          ) {
-            bestTerminalSnap = { dx, dy, distance };
-          }
+            : component;
         }
+      );
 
-        if (bestTerminalSnap) {
-          correctionX = bestTerminalSnap.dx;
-          correctionY = bestTerminalSnap.dy;
-          working = working.map((component) =>
-            groupIds.has(component.id)
-              ? {
-                  ...component,
-                  x: component.x + correctionX,
-                  y: component.y + correctionY,
-                }
-              : component
+      // With object snapping enabled, quantise the group using one shared
+      // correction, then allow the nearest selected terminal to magnetically
+      // snap to an unselected component. Hidden junctions receive the same
+      // correction but are never themselves treated as magnetic candidates.
+      if (snapObjects) {
+        const anchor = finalComponents.find(
+          (component) => component.id === drag.id
+        );
+
+        if (anchor) {
+          const alignedAnchor =
+            alignComponentToGrid(anchor);
+          const gridCorrectionX =
+            alignedAnchor.x - anchor.x;
+          const gridCorrectionY =
+            alignedAnchor.y - anchor.y;
+
+          let working = finalComponents.map(
+            (component) =>
+              groupIds.has(component.id)
+                ? {
+                    ...component,
+                    x:
+                      component.x +
+                      gridCorrectionX,
+                    y:
+                      component.y +
+                      gridCorrectionY,
+                  }
+                : component
+          );
+
+          const outsideComponents = working.filter(
+            (component) =>
+              !groupIds.has(component.id)
+          );
+          let bestTerminalSnap = null;
+
+          for (const component of working) {
+            if (
+              !groupIds.has(component.id) ||
+              component.type === "label" ||
+              component.type === "junction"
+            ) {
+              continue;
+            }
+
+            const snapped =
+              snapComponentToNearbyTerminal(
+                component,
+                [
+                  component,
+                  ...outsideComponents,
+                ]
+              );
+            const dx = snapped.x - component.x;
+            const dy = snapped.y - component.y;
+            const distance = Math.hypot(dx, dy);
+
+            if (
+              distance > 0.001 &&
+              (!bestTerminalSnap ||
+                distance <
+                  bestTerminalSnap.distance)
+            ) {
+              bestTerminalSnap = {
+                dx,
+                dy,
+                distance,
+              };
+            }
+          }
+
+          if (bestTerminalSnap) {
+            working = working.map((component) =>
+              groupIds.has(component.id)
+                ? {
+                    ...component,
+                    x:
+                      component.x +
+                      bestTerminalSnap.dx,
+                    y:
+                      component.y +
+                      bestTerminalSnap.dy,
+                  }
+                : component
+            );
+          }
+
+          finalComponents = working;
+        }
+      }
+
+      setComponents(finalComponents);
+
+      if (drag.hasRigidFixedWires) {
+        const finalAnchor =
+          finalComponents.find(
+            (component) =>
+              component.id === drag.id
+          );
+        const originAnchor =
+          drag.origins[drag.id];
+
+        if (finalAnchor && originAnchor) {
+          setWires(
+            translateRigidFixedWires(
+              drag.transformWires,
+              groupIds,
+              finalAnchor.x - originAnchor.x,
+              finalAnchor.y - originAnchor.y
+            )
           );
         }
-
-        const movedWires = working.filter(
-          (component) =>
-            groupIds.has(component.id) &&
-            component.type === "wire-segment"
-        );
-        const blocked = movedWires.some((wireComponent) =>
-          wireComponentHasForbiddenOverlap(
-            wireComponent,
-            working,
-            groupIds
-          )
-        );
-
-          return blocked ? current : working;
-        });
       }
     }
 
@@ -4289,23 +5040,31 @@ function App() {
       return;
     }
 
-    // If the browser cancels the gesture, return every component in the
-    // dragged group to where it began.
+    // If the browser cancels the gesture, restore the complete pre-drag
+    // snapshot. Group dragging can now move hidden interception junctions and
+    // fixed-wire metadata as well as the visible selected components.
     if (drag.started) {
-      setComponents((current) =>
-        current.map((component) => {
-          const origin = drag.origins[component.id];
-          return origin
-            ? { ...component, x: origin.x, y: origin.y }
-            : component;
-        })
+      setComponents(
+        drag.undoSnapshot.components.map(
+          (component) => ({ ...component })
+        )
+      );
+      setWires(
+        drag.undoSnapshot.wires.map((wire) => ({
+          ...wire,
+          from: { ...wire.from },
+          to: { ...wire.to },
+        }))
       );
     }
 
     dragRef.current = null;
   }
 
-  function buildWireToEndpoint(endpoint) {
+  function buildWireToEndpoint(
+    endpoint,
+    { allowCShape = true } = {}
+  ) {
     if (!wireStart) return null;
 
     const fromComponent = componentMap.get(
@@ -4341,6 +5100,7 @@ function App() {
           fromPoint.y === toPoint.y
         : false;
     const cShapeAllowed =
+      allowCShape &&
       !wireStart.leadInset &&
       !endpoint.leadInset &&
       !["voltmeter", "junction"].includes(
@@ -4370,8 +5130,14 @@ function App() {
     };
   }
 
-  function finishWireToEndpoint(endpoint) {
-    const wire = buildWireToEndpoint(endpoint);
+  function finishWireToEndpoint(
+    endpoint,
+    options = undefined
+  ) {
+    const wire = buildWireToEndpoint(
+      endpoint,
+      options
+    );
     if (!wire) return;
 
     rememberUndo();
@@ -4430,7 +5196,10 @@ function App() {
         junctionPoint.y - firstPoint.y
       ) < 0.01
     ) {
-      finishWireToEndpoint(targetWire.from);
+      finishWireToEndpoint(
+        targetWire.from,
+        { allowCShape: false }
+      );
       return;
     }
 
@@ -4440,7 +5209,10 @@ function App() {
         junctionPoint.y - lastPoint.y
       ) < 0.01
     ) {
-      finishWireToEndpoint(targetWire.to);
+      finishWireToEndpoint(
+        targetWire.to,
+        { allowCShape: false }
+      );
       return;
     }
 
@@ -4916,35 +5688,49 @@ function App() {
       const maxY = Math.max(...selectedItems.map((item) => item.y));
       const centreX = (minX + maxX) / 2;
       const centreY = (minY + maxY) / 2;
-      const selectedIds = new Set(selectedComponentIds);
+      const selectedIds = new Set(
+        selectedComponentIds
+      );
+      const transformIds =
+        getGroupTransformComponentIds(
+          selectedComponentIds,
+          components,
+          wires
+        );
 
       rotationPivotRef.current = null;
       rememberUndo();
 
       setComponents((current) =>
         current.map((component) => {
-          if (!selectedIds.has(component.id)) {
+          if (!transformIds.has(component.id)) {
             return component;
           }
 
-          const dx = component.x - centreX;
-          const dy = component.y - centreY;
+          const rotatedPoint =
+            rotatePointClockwiseAround(
+              component,
+              centreX,
+              centreY
+            );
 
           return {
             ...component,
-            // Positive SVG/component rotation is clockwise. Rotate the
-            // component's centre around the group's centre by the same 90°.
-            x: centreX - dy,
-            y: centreY + dx,
-            // Standalone text annotations stay horizontal/readable, but still
-            // move around the group centre with everything else.
+            x: rotatedPoint.x,
+            y: rotatedPoint.y,
+            // Standalone text annotations and hidden junction nodes do not
+            // need their own local orientation changed, but both still move
+            // around the group centre.
             rotation:
-              component.type === "label"
+              ["label", "junction"].includes(
+                component.type
+              )
                 ? component.rotation
                 : (component.rotation + 90) % 360,
             labelPosition:
               ![
                 "label",
+                "junction",
                 "wire-segment",
                 "potential-divider",
               ].includes(component.type)
@@ -4956,32 +5742,66 @@ function App() {
         })
       );
 
-      // A Wire-tool wire whose BOTH endpoints are inside the selection is part
-      // of the rigid group too. Rotate its stored corner metadata so its route
-      // turns with the selected components rather than re-routing differently.
+      // Wires with both endpoints in the transformed group rotate rigidly too.
+      // Fixed/intercepted pieces are rebuilt from the geometry currently on
+      // screen, so their bends and axis metadata turn with the group instead
+      // of snapping back to an old stored position.
       setWires((current) =>
         current.map((wire) => {
-          const bothEndsSelected =
-            selectedIds.has(wire.from.componentId) &&
-            selectedIds.has(wire.to.componentId);
+          const bothEndsTransform =
+            transformIds.has(
+              wire.from.componentId
+            ) &&
+            transformIds.has(
+              wire.to.componentId
+            );
 
-          if (!bothEndsSelected) {
+          if (!bothEndsTransform) {
             return wire;
+          }
+
+          if (wire.route === "fixed") {
+            const resolved =
+              getStoredWireGeometry(
+                wire,
+                componentMap
+              );
+
+            if (!resolved) {
+              return wire;
+            }
+
+            const rotatedPoints =
+              resolved.geometry.points.map(
+                (point) =>
+                  rotatePointClockwiseAround(
+                    point,
+                    centreX,
+                    centreY
+                  )
+              );
+
+            return rebuildFixedWireFromPoints(
+              wire,
+              rotatedPoints
+            );
           }
 
           if (wire.route === "c-shape") {
             return {
               ...wire,
-              cDirection: rotateDirectionKeyClockwise(
-                wire.cDirection
-              ),
+              cDirection:
+                rotateDirectionKeyClockwise(
+                  wire.cDirection
+                ),
             };
           }
 
           return {
             ...wire,
             route: oppositeWireRoute(
-              wire.route ?? "horizontal-first"
+              wire.route ??
+                "horizontal-first"
             ),
           };
         })
@@ -5171,6 +5991,39 @@ function App() {
       current.map((component) =>
         component.id === selectedComponent.id
           ? { ...component, type: nextType }
+          : component
+      )
+    );
+  }
+
+  function setSelectedTwoWaySwitchPosition(
+    switchPosition
+  ) {
+    if (
+      !selectedComponent ||
+      selectedComponent.type !== "switch-two-way"
+    ) {
+      return;
+    }
+
+    const nextPosition =
+      switchPosition === "lower" ? "lower" : "upper";
+
+    if (
+      (selectedComponent.switchPosition ?? "upper") ===
+      nextPosition
+    ) {
+      return;
+    }
+
+    rememberUndo();
+    setComponents((current) =>
+      current.map((component) =>
+        component.id === selectedComponent.id
+          ? {
+              ...component,
+              switchPosition: nextPosition,
+            }
           : component
       )
     );
@@ -5426,7 +6279,10 @@ function App() {
     };
   }
 
-  function insertLabelCharacter(character) {
+  function insertLabelCharacter(
+    character,
+    { refocus = true } = {}
+  ) {
     if (!selectedComponent) return;
 
     const requestedField = activeLabelFieldRef.current;
@@ -5466,13 +6322,80 @@ function App() {
       end: nextCursor,
     };
 
-    requestAnimationFrame(() => {
-      const currentInput = inputRef.current;
-      if (!currentInput) return;
+    if (refocus) {
+      requestAnimationFrame(() => {
+        const currentInput = inputRef.current;
+        if (!currentInput) return;
 
-      currentInput.focus();
-      currentInput.setSelectionRange(nextCursor, nextCursor);
+        currentInput.focus();
+        currentInput.setSelectionRange(
+          nextCursor,
+          nextCursor
+        );
+      });
+    }
+  }
+
+  function closeUnicodePicker() {
+    setUnicodePickerOpen(false);
+    setUnicodeCodePointStatus("");
+
+    requestAnimationFrame(() => {
+      const field = activeLabelFieldRef.current;
+      const inputRef = getLabelInputRef(field);
+      const input = inputRef.current;
+      if (!input) return;
+
+      const remembered = labelSelectionRef.current;
+      const cursor =
+        remembered.field === field
+          ? remembered.start
+          : input.value.length;
+
+      input.focus();
+      input.setSelectionRange(cursor, cursor);
     });
+  }
+
+  function insertUnicodePickerCharacter(character) {
+    insertLabelCharacter(character, {
+      refocus: false,
+    });
+    setUnicodeCodePointStatus(
+      `Inserted ${character} (${unicodeCodePointLabel(character)})`
+    );
+  }
+
+  function insertUnicodeCodePoint() {
+    const normalized = unicodeCodePoint
+      .trim()
+      .replace(/^U\+/i, "")
+      .replace(/^0x/i, "");
+
+    if (!/^[0-9a-f]+$/i.test(normalized)) {
+      setUnicodeCodePointStatus(
+        "Enter a hexadecimal code point, for example U+03C0."
+      );
+      return;
+    }
+
+    const codePoint = Number.parseInt(normalized, 16);
+    const validScalar =
+      Number.isInteger(codePoint) &&
+      codePoint >= 0 &&
+      codePoint <= 0x10ffff &&
+      !(codePoint >= 0xd800 && codePoint <= 0xdfff);
+
+    if (!validScalar) {
+      setUnicodeCodePointStatus(
+        "That is not a valid Unicode character code point."
+      );
+      return;
+    }
+
+    const character = String.fromCodePoint(codePoint);
+    insertUnicodePickerCharacter(character);
+    setUnicodeCodePoint("");
   }
 
   function clearCanvas() {
@@ -6138,6 +7061,10 @@ function App() {
 
   const connectorsVisible =
     showBlueConnectors || mode === "wire";
+  // Keep editor connector dots the same apparent size on screen at every
+  // zoom level. The default-zoom appearance is the visual baseline.
+  const connectorVisualScale =
+    DEFAULT_ZOOM / zoom;
 
   const liveWireStart =
     wireStart && componentMap.get(wireStart.componentId)
@@ -6284,7 +7211,6 @@ function App() {
                 alignItems: "center",
                 gap: "6px",
                 padding: "4px 6px",
-                whiteSpace: "nowrap",
                 fontWeight: 400,
                 fontSize: "13px",
                 cursor: "pointer",
@@ -6305,7 +7231,17 @@ function App() {
                   cursor: "pointer",
                 }}
               />
-              Transparent background
+              <span
+                style={{
+                  display: "inline-block",
+                  lineHeight: 1.08,
+                  textAlign: "left",
+                }}
+              >
+                Transparent
+                <br />
+                background
+              </span>
             </label>
 
             <button
@@ -6360,7 +7296,7 @@ function App() {
             </div>
 
             <div className="palette-grid">
-              {SYMBOLS.map((symbol) => (
+              {BASIC_SYMBOLS.map((symbol) => (
                 <button
                   key={symbol.type}
                   className="palette-item"
@@ -6375,6 +7311,59 @@ function App() {
                   <span>{symbol.label}</span>
                 </button>
               ))}
+            </div>
+
+            <div
+              style={{
+                marginTop: "14px",
+                paddingTop: "12px",
+                borderTop: "1px solid #d7e4f1",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "baseline",
+                  justifyContent: "space-between",
+                  gap: "8px",
+                  margin: "0 4px 9px",
+                }}
+              >
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: "13px",
+                    color: "#334155",
+                    fontWeight: 700,
+                    letterSpacing: "0.01em",
+                  }}
+                >
+                  Advanced symbols
+                </h3>
+              </div>
+
+              <div className="palette-grid">
+                {ADVANCED_SYMBOLS.map((symbol) => (
+                  <button
+                    key={symbol.type}
+                    className="palette-item"
+                    draggable
+                    onDragStart={(event) =>
+                      handlePaletteDragStart(
+                        event,
+                        symbol.type
+                      )
+                    }
+                    onClick={() =>
+                      addComponent(symbol.type)
+                    }
+                    title={`Add ${symbol.label}`}
+                  >
+                    <PaletteIcon type={symbol.type} />
+                    <span>{symbol.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </aside>
@@ -6935,7 +7924,7 @@ function App() {
                       <circle
                         cx={wireSnapTarget.position.x}
                         cy={wireSnapTarget.position.y}
-                        r="7"
+                        r={7 * connectorVisualScale}
                         fill="white"
                         stroke="#2563eb"
                         strokeWidth="2"
@@ -6944,7 +7933,7 @@ function App() {
                       <circle
                         cx={wireSnapTarget.position.x}
                         cy={wireSnapTarget.position.y}
-                        r="2.5"
+                        r={2.5 * connectorVisualScale}
                         fill="currentColor"
                         stroke="none"
                       />
@@ -7128,6 +8117,111 @@ function App() {
                             bottom: 29,
                           },
                         };
+                      case "motor":
+                        return {
+                          hit: {
+                            left: 55,
+                            right: 55,
+                            top: 29,
+                            bottom: 29,
+                          },
+                          selection: {
+                            left: 53,
+                            right: 53,
+                            top: 27,
+                            bottom: 27,
+                          },
+                        };
+                      case "buzzer":
+                        return {
+                          hit: {
+                            left: 55,
+                            right: 55,
+                            top: 27,
+                            bottom: 27,
+                          },
+                          selection: {
+                            left: 53,
+                            right: 53,
+                            top: 25,
+                            bottom: 25,
+                          },
+                        };
+                      case "microphone":
+                        return {
+                          hit: {
+                            left: 36,
+                            right: 55,
+                            top: 34,
+                            bottom: 34,
+                          },
+                          selection: {
+                            left: 34,
+                            right: 53,
+                            top: 32,
+                            bottom: 32,
+                          },
+                        };
+                      case "solenoid":
+                        return {
+                          hit: {
+                            left: 55,
+                            right: 55,
+                            top: 18,
+                            bottom: 18,
+                          },
+                          selection: {
+                            left: 53,
+                            right: 53,
+                            top: 16,
+                            bottom: 16,
+                          },
+                        };
+                      case "transformer":
+                        return {
+                          hit: {
+                            left: 55,
+                            right: 55,
+                            top: 41,
+                            bottom: 41,
+                          },
+                          selection: {
+                            left: 53,
+                            right: 53,
+                            top: 39,
+                            bottom: 39,
+                          },
+                        };
+                      case "ground":
+                        return {
+                          hit: {
+                            left: 25,
+                            right: 25,
+                            top: 55,
+                            bottom: 31,
+                          },
+                          selection: {
+                            left: 23,
+                            right: 23,
+                            top: 53,
+                            bottom: 29,
+                          },
+                        };
+                      case "switch-two-way":
+                        return {
+                          hit: {
+                            left: 55,
+                            right: 55,
+                            top: 31,
+                            bottom: 31,
+                          },
+                          selection: {
+                            left: 53,
+                            right: 53,
+                            top: 29,
+                            bottom: 29,
+                          },
+                        };
                       case "potential-divider":
                         return {
                           hit: {
@@ -7224,6 +8318,9 @@ function App() {
                             showPolarity={component.showPolarity ?? true}
                             verticalFlip={component.verticalFlip ?? false}
                             wiperOffset={getPotentiometerWiperOffset(component)}
+                            switchPosition={
+                              component.switchPosition ?? "upper"
+                            }
                             currentArrow={component.currentArrow ?? "none"}
                             currentArrowOffset={currentArrowOffset}
                             componentRotation={component.rotation ?? 0}
@@ -7250,7 +8347,11 @@ function App() {
                         />
 
                         {component.type !== "label" &&
-                          component.type !== "potentiometer" && (
+                          component.type !== "potentiometer" &&
+                          component.type !== "transformer" &&
+                          component.type !== "ground" &&
+                          component.type !== "switch-two-way" &&
+                          component.type !== "microphone" && (
                           <>
                             {mode === "wire" && (
                               <>
@@ -7312,15 +8413,16 @@ function App() {
                               cx={-portDistance}
                               cy="0"
                               r={
-                                leftPortSnapTarget
+                                (leftPortSnapTarget
                                   ? 8
                                   : isWireSegment &&
                                       isSelected &&
                                       mode === "select"
-                                    ? 7
+                                    ? 5.5
                                     : leftPortActive
                                       ? 7
-                                      : 5
+                                      : 5) *
+                                connectorVisualScale
                               }
                               className={`terminal ${
                                 leftPortActive ? "terminal-active" : ""
@@ -7350,15 +8452,16 @@ function App() {
                               cx={portDistance}
                               cy="0"
                               r={
-                                rightPortSnapTarget
+                                (rightPortSnapTarget
                                   ? 8
                                   : isWireSegment &&
                                       isSelected &&
                                       mode === "select"
-                                    ? 7
+                                    ? 5.5
                                     : rightPortActive
                                       ? 7
-                                      : 5
+                                      : 5) *
+                                connectorVisualScale
                               }
                               className={`terminal ${
                                 rightPortActive ? "terminal-active" : ""
@@ -7390,11 +8493,12 @@ function App() {
                                 cx="0"
                                 cy={POTENTIAL_DIVIDER_TAP_LENGTH}
                                 r={
-                                  tapPortSnapTarget
+                                  (tapPortSnapTarget
                                     ? 8
                                     : tapPortActive
                                       ? 7
-                                      : 5
+                                      : 5) *
+                                  connectorVisualScale
                                 }
                                 className={`terminal ${
                                   tapPortActive ? "terminal-active" : ""
@@ -7413,6 +8517,110 @@ function App() {
                                   )
                                 }
                               />
+                            )}
+                          </>
+                        )}
+
+                        {[
+                          "transformer",
+                          "ground",
+                          "switch-two-way",
+                          "microphone",
+                        ].includes(component.type) && (
+                          <>
+                            {mode === "wire" &&
+                              getComponentPorts(component).map(
+                                (port) => {
+                                  const local =
+                                    getPortLocalPosition(
+                                      component,
+                                      port
+                                    );
+
+                                  return (
+                                    <circle
+                                      key={`${port}-wire-hit`}
+                                      data-editor-only="true"
+                                      cx={local.x}
+                                      cy={local.y}
+                                      r={
+                                        WIRE_TOOL_SNAP_RADIUS /
+                                        zoom
+                                      }
+                                      fill="transparent"
+                                      stroke="none"
+                                      pointerEvents="all"
+                                      onPointerDown={(event) =>
+                                        handlePortClick(
+                                          event,
+                                          component.id,
+                                          port
+                                        )
+                                      }
+                                    />
+                                  );
+                                }
+                              )}
+
+                            {getComponentPorts(component).map(
+                              (port) => {
+                                const local =
+                                  getPortLocalPosition(
+                                    component,
+                                    port
+                                  );
+                                const portActive =
+                                  wireStart?.componentId ===
+                                    component.id &&
+                                  wireStart?.port === port;
+                                const portSnapTarget =
+                                  mode === "wire" &&
+                                  wireStart &&
+                                  wireSnapTarget?.kind ===
+                                    "terminal" &&
+                                  wireSnapTarget?.componentId ===
+                                    component.id &&
+                                  wireSnapTarget?.port === port;
+
+                                return (
+                                  <circle
+                                    key={`${port}-terminal`}
+                                    data-editor-only="true"
+                                    cx={local.x}
+                                    cy={local.y}
+                                    r={
+                                      (portSnapTarget
+                                        ? 8
+                                        : portActive
+                                          ? 7
+                                          : 5) *
+                                      connectorVisualScale
+                                    }
+                                    className={`terminal ${
+                                      portActive
+                                        ? "terminal-active"
+                                        : ""
+                                    }`}
+                                    style={{
+                                      opacity:
+                                        connectorsVisible
+                                          ? 1
+                                          : 0,
+                                      pointerEvents:
+                                        connectorsVisible
+                                          ? "auto"
+                                          : "none",
+                                    }}
+                                    onPointerDown={(event) =>
+                                      handlePortClick(
+                                        event,
+                                        component.id,
+                                        port
+                                      )
+                                    }
+                                  />
+                                );
+                              }
                             )}
                           </>
                         )}
@@ -7479,11 +8687,12 @@ function App() {
                               cx="0"
                               cy={-PORT_DISTANCE}
                               r={
-                                topPortSnapTarget
+                                (topPortSnapTarget
                                   ? 8
                                   : topPortActive
                                     ? 7
-                                    : 5
+                                    : 5) *
+                                connectorVisualScale
                               }
                               className={`terminal ${
                                 topPortActive ? "terminal-active" : ""
@@ -7507,11 +8716,12 @@ function App() {
                               cx="0"
                               cy={PORT_DISTANCE}
                               r={
-                                bottomPortSnapTarget
+                                (bottomPortSnapTarget
                                   ? 8
                                   : bottomPortActive
                                     ? 7
-                                    : 5
+                                    : 5) *
+                                connectorVisualScale
                               }
                               className={`terminal ${
                                 bottomPortActive ? "terminal-active" : ""
@@ -7537,11 +8747,12 @@ function App() {
                               )}
                               cy={component.verticalFlip ? -40 : 40}
                               r={
-                                wiperPortSnapTarget
+                                (wiperPortSnapTarget
                                   ? 8
                                   : wiperPortActive
                                     ? 7
-                                    : 5
+                                    : 5) *
+                                connectorVisualScale
                               }
                               className={`terminal ${
                                 wiperPortActive ? "terminal-active" : ""
@@ -7668,7 +8879,7 @@ function App() {
                                 <circle
                                   cx={x}
                                   cy="0"
-                                  r="16"
+                                  r={16 * connectorVisualScale}
                                   fill="transparent"
                                   stroke="none"
                                   pointerEvents="all"
@@ -7685,8 +8896,9 @@ function App() {
                                   <circle
                                     cx={x}
                                     cy="0"
-                                    r="7"
+                                    r={5.5 * connectorVisualScale}
                                     className="terminal"
+                                    fill="#3b82f6"
                                     pointerEvents="none"
                                   />
                                 )}
@@ -7786,13 +8998,36 @@ function App() {
               <div className="inspector-symbol">
                 <PaletteIcon type={selectedComponent.type} />
               </div>
-              <p className="selected-name">
-                {
-                  SYMBOLS.find(
-                    (symbol) => symbol.type === selectedComponent.type
-                  )?.label
-                }
-              </p>
+              {selectedComponent.type === "wire-segment" ? (
+                <div
+                  style={{
+                    marginBottom: "12px",
+                    padding: "9px 10px",
+                    border: "1px solid #bfdbfe",
+                    borderLeft: "4px solid #2563eb",
+                    borderRadius: "9px",
+                    background: "#eff6ff",
+                  }}
+                >
+                  <p
+                    className="selected-name"
+                    style={{
+                      margin: 0,
+                      color: "#1d4ed8",
+                    }}
+                  >
+                    Wire component created from pallate
+                  </p>
+                </div>
+              ) : (
+                <p className="selected-name">
+                  {
+                    SYMBOLS.find(
+                      (symbol) => symbol.type === selectedComponent.type
+                    )?.label
+                  }
+                </p>
+              )}
 
               {["switch-open", "switch-closed"].includes(
                 selectedComponent.type
@@ -7842,6 +9077,65 @@ function App() {
                       }
                     >
                       Closed
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {selectedComponent.type ===
+                "switch-two-way" && (
+                <div style={{ marginBottom: "18px" }}>
+                  <div
+                    style={{
+                      marginBottom: "6px",
+                      fontSize: "12px",
+                      color: "#5d6e84",
+                    }}
+                  >
+                    Switch position
+                  </div>
+
+                  <div
+                    aria-label="Two-way switch position"
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(2, minmax(0, 1fr))",
+                      gap: "6px",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className={
+                        (selectedComponent.switchPosition ??
+                          "upper") === "upper"
+                          ? "active"
+                          : ""
+                      }
+                      onClick={() =>
+                        setSelectedTwoWaySwitchPosition(
+                          "upper"
+                        )
+                      }
+                    >
+                      Upper
+                    </button>
+
+                    <button
+                      type="button"
+                      className={
+                        selectedComponent.switchPosition ===
+                        "lower"
+                          ? "active"
+                          : ""
+                      }
+                      onClick={() =>
+                        setSelectedTwoWaySwitchPosition(
+                          "lower"
+                        )
+                      }
+                    >
+                      Lower
                     </button>
                   </div>
                 </div>
@@ -8412,12 +9706,36 @@ function App() {
                 ))}
               </div>
 
-              <p
-                className="hint"
-                style={{ marginTop: "7px", marginBottom: 0 }}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  marginTop: "7px",
+                }}
               >
-                Useful common symbols
-              </p>
+                <button
+                  type="button"
+                  onMouseDown={(event) => {
+                    // Preserve the current label cursor/selection.
+                    event.preventDefault();
+                  }}
+                  onClick={() => {
+                    setUnicodeSearch("");
+                    setUnicodeCodePoint("");
+                    setUnicodeCodePointStatus("");
+                    setUnicodePickerOpen(true);
+                  }}
+                  title="Open the Unicode character picker"
+                  aria-label="Open Unicode character picker"
+                  style={{
+                    padding: "5px 8px",
+                    fontSize: "12px",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Unicode…
+                </button>
+              </div>
                 </>
               )}
 
@@ -8797,6 +10115,289 @@ function App() {
           )}
         </aside>
       </main>
+
+      {unicodePickerOpen && (
+        <div
+          role="presentation"
+          onPointerDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeUnicodePicker();
+            }
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            display: "grid",
+            placeItems: "center",
+            padding: "24px",
+            background: "rgba(15, 23, 42, 0.32)",
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="unicode-picker-title"
+            style={{
+              width: "min(700px, calc(100vw - 36px))",
+              maxHeight: "min(760px, calc(100vh - 48px))",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              border: "1px solid #cbd5e1",
+              borderRadius: "14px",
+              background: "white",
+              boxShadow:
+                "0 24px 70px rgba(15, 23, 42, 0.28)",
+            }}
+            onPointerDown={(event) =>
+              event.stopPropagation()
+            }
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "12px",
+                padding: "14px 16px",
+                borderBottom: "1px solid #e2e8f0",
+              }}
+            >
+              <div>
+                <h3
+                  id="unicode-picker-title"
+                  style={{
+                    margin: 0,
+                    fontSize: "18px",
+                    color: "#1e293b",
+                  }}
+                >
+                  Unicode characters
+                </h3>
+                <p
+                  style={{
+                    margin: "3px 0 0",
+                    color: "#64748b",
+                    fontSize: "12px",
+                  }}
+                >
+                  Click a character to insert it at the current label cursor.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeUnicodePicker}
+                aria-label="Close Unicode character picker"
+                title="Close"
+                style={{
+                  width: "32px",
+                  height: "32px",
+                  padding: 0,
+                  fontSize: "19px",
+                  lineHeight: 1,
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "minmax(0, 1fr) minmax(220px, 0.55fr)",
+                gap: "10px",
+                padding: "12px 16px",
+                borderBottom: "1px solid #e2e8f0",
+                background: "#f8fafc",
+              }}
+            >
+              <label
+                style={{
+                  display: "grid",
+                  gap: "5px",
+                  fontSize: "12px",
+                  color: "#475569",
+                }}
+              >
+                Search characters
+                <input
+                  autoFocus
+                  value={unicodeSearch}
+                  onChange={(event) =>
+                    setUnicodeSearch(event.target.value)
+                  }
+                  placeholder="e.g. theta, arrow, U+03A9"
+                  style={{
+                    minWidth: 0,
+                    padding: "8px 10px",
+                  }}
+                />
+              </label>
+
+              <label
+                style={{
+                  display: "grid",
+                  gap: "5px",
+                  fontSize: "12px",
+                  color: "#475569",
+                }}
+              >
+                Insert any code point
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr auto",
+                    gap: "6px",
+                  }}
+                >
+                  <input
+                    value={unicodeCodePoint}
+                    onChange={(event) => {
+                      setUnicodeCodePoint(
+                        event.target.value
+                      );
+                      setUnicodeCodePointStatus("");
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        insertUnicodeCodePoint();
+                      }
+                    }}
+                    placeholder="U+03C0"
+                    aria-label="Unicode code point"
+                    style={{
+                      minWidth: 0,
+                      padding: "8px 10px",
+                      fontFamily:
+                        'ui-monospace, SFMono-Regular, Menlo, monospace',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={insertUnicodeCodePoint}
+                    style={{
+                      padding: "7px 10px",
+                    }}
+                  >
+                    Insert
+                  </button>
+                </div>
+              </label>
+            </div>
+
+            {unicodeCodePointStatus && (
+              <div
+                role="status"
+                style={{
+                  padding: "7px 16px 0",
+                  color: "#475569",
+                  fontSize: "12px",
+                }}
+              >
+                {unicodeCodePointStatus}
+              </div>
+            )}
+
+            <div
+              style={{
+                flex: "1 1 auto",
+                overflowY: "auto",
+                padding: "10px 16px 16px",
+              }}
+            >
+              {UNICODE_CATEGORIES.map((category) => {
+                const entries =
+                  filteredUnicodeCharacters.filter(
+                    (entry) =>
+                      entry.category === category
+                  );
+
+                if (!entries.length) {
+                  return null;
+                }
+
+                return (
+                  <section
+                    key={category}
+                    style={{
+                      marginTop: "10px",
+                    }}
+                  >
+                    <h4
+                      style={{
+                        margin: "0 0 7px",
+                        color: "#475569",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {category}
+                    </h4>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          "repeat(auto-fill, minmax(48px, 1fr))",
+                        gap: "6px",
+                      }}
+                    >
+                      {entries.map((entry) => {
+                        const codePoint =
+                          unicodeCodePointLabel(
+                            entry.character
+                          );
+
+                        return (
+                          <button
+                            key={`${category}-${entry.character}`}
+                            type="button"
+                            onClick={() =>
+                              insertUnicodePickerCharacter(
+                                entry.character
+                              )
+                            }
+                            title={`${entry.name} — ${codePoint}`}
+                            aria-label={`Insert ${entry.name}, ${codePoint}`}
+                            style={{
+                              minWidth: 0,
+                              height: "44px",
+                              padding: "3px",
+                              fontSize: "21px",
+                              lineHeight: 1,
+                              background: "white",
+                            }}
+                          >
+                            {entry.character}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })}
+
+              {!filteredUnicodeCharacters.length && (
+                <div
+                  style={{
+                    padding: "28px 8px",
+                    textAlign: "center",
+                    color: "#64748b",
+                    fontSize: "13px",
+                  }}
+                >
+                  No listed characters match that search. You can still insert
+                  any Unicode character by its U+ code point above.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
