@@ -4,14 +4,24 @@ const GRID = 10;
 const WIDTH = 1320;
 const HEIGHT = 840;
 const PORT_DISTANCE = 50;
+const METER_RADIUS = 18;
+const METER_FONT_SIZE = 18;
+const VOLTMETER_PORT_DISTANCE = METER_RADIUS + 8;
+const AMMETER_PORT_DISTANCE = METER_RADIUS + 14;
 const POTENTIAL_DIVIDER_TAP_LENGTH = 35;
+const POTENTIOMETER_WIPER_OFFSET_DEFAULT = 30;
+const POTENTIOMETER_WIPER_OFFSET_MIN = 25;
+const POTENTIOMETER_WIPER_OFFSET_MAX = 80;
+const POTENTIOMETER_WIPER_OFFSET_STEP = 5;
 const DEFAULT_C_WIRE_OFFSET = 50;
 const MIN_C_WIRE_OFFSET = 10;
-const DEFAULT_ZOOM = 1.35;
+const DEFAULT_ZOOM = 1.5;
 const ZOOM_MIN = 0.65;
-const ZOOM_MAX = 2.3;
+const ZOOM_MAX = 3;
 const ZOOM_STEP = 0.15;
 const WIRE_TOOL_SNAP_RADIUS = 20;
+const BLACK_JUNCTION_SNAP_RADIUS = 22;
+const WIRE_TOOL_HIT_WIDTH = GRID * 1.4;
 const UNDO_LIMIT = 100;
 const DEFAULT_WIRE_COMPONENT_LENGTH = 100;
 const MIN_WIRE_COMPONENT_LENGTH = 20;
@@ -116,6 +126,24 @@ function alignComponentToGrid(component) {
     };
   }
 
+  const rotation =
+    ((component.rotation ?? 0) % 360 + 360) % 360;
+  const nearestQuarterTurn =
+    Math.round(rotation / 90) * 90;
+  const isAxisAligned =
+    Math.abs(rotation - nearestQuarterTurn) < 0.001 ||
+    Math.abs(rotation - nearestQuarterTurn + 360) < 0.001 ||
+    Math.abs(rotation - nearestQuarterTurn - 360) < 0.001;
+
+  if (!isAxisAligned) {
+    const leftEndpoint = getPortPosition(component, "left");
+    return {
+      ...component,
+      x: component.x + snap(leftEndpoint.x) - leftEndpoint.x,
+      y: component.y + snap(leftEndpoint.y) - leftEndpoint.y,
+    };
+  }
+
   const length = Math.max(
     MIN_WIRE_COMPONENT_LENGTH,
     snap(component.length ?? DEFAULT_WIRE_COMPONENT_LENGTH)
@@ -123,11 +151,15 @@ function alignComponentToGrid(component) {
   const halfLength = length / 2;
   const halfGridOffset =
     ((halfLength % GRID) + GRID) % GRID;
-  const rotation = ((component.rotation % 360) + 360) % 360;
-  const isHorizontal = rotation === 0 || rotation === 180;
+  const normalizedQuarterTurn =
+    ((nearestQuarterTurn % 360) + 360) % 360;
+  const isHorizontal =
+    normalizedQuarterTurn === 0 ||
+    normalizedQuarterTurn === 180;
 
   return {
     ...component,
+    rotation: normalizedQuarterTurn,
     length,
     x: isHorizontal
       ? snapWithOffset(component.x, halfGridOffset)
@@ -164,6 +196,7 @@ function CircuitSymbol({
   cellCount = 1,
   showPolarity = true,
   verticalFlip = false,
+  wiperOffset = POTENTIOMETER_WIPER_OFFSET_DEFAULT,
   currentArrow = "none",
   currentArrowOffset = 0,
   componentRotation = 0,
@@ -226,8 +259,8 @@ function CircuitSymbol({
       body = (
         <>
           <line x1="-50" y1="0" x2="-24" y2="0" />
-          <circle cx="-20" cy="0" r="4" fill="white" />
-          <circle cx="20" cy="0" r="4" fill="white" />
+          <circle cx="-20" cy="0" r="4" fill="none" />
+          <circle cx="20" cy="0" r="4" fill="none" />
           <line x1="24" y1="0" x2="50" y2="0" />
           <line x1="-16" y1="-3" x2="16" y2="-22" />
         </>
@@ -238,8 +271,8 @@ function CircuitSymbol({
       body = (
         <>
           <line x1="-50" y1="0" x2="-24" y2="0" />
-          <circle cx="-20" cy="0" r="4" fill="white" />
-          <circle cx="20" cy="0" r="4" fill="white" />
+          <circle cx="-20" cy="0" r="4" fill="none" />
+          <circle cx="20" cy="0" r="4" fill="none" />
           <line x1="24" y1="0" x2="50" y2="0" />
           <line x1="-16" y1="0" x2="16" y2="0" />
         </>
@@ -394,10 +427,34 @@ function CircuitSymbol({
     case "capacitor":
       body = (
         <>
-          <line x1="-50" y1="0" x2="-8" y2="0" />
-          <line x1="8" y1="0" x2="50" y2="0" />
-          <line x1="-8" y1="-24" x2="-8" y2="24" />
-          <line x1="8" y1="-24" x2="8" y2="24" />
+          <line
+            x1="-50"
+            y1="0"
+            x2="-8"
+            y2="0"
+            strokeLinecap="butt"
+          />
+          <line
+            x1="8"
+            y1="0"
+            x2="50"
+            y2="0"
+            strokeLinecap="butt"
+          />
+          <line
+            x1="-8"
+            y1="-24"
+            x2="-8"
+            y2="24"
+            strokeLinecap="butt"
+          />
+          <line
+            x1="8"
+            y1="-24"
+            x2="8"
+            y2="24"
+            strokeLinecap="butt"
+          />
         </>
       );
       break;
@@ -426,14 +483,29 @@ function CircuitSymbol({
     case "voltmeter":
       body = (
         <>
-          <line x1="-50" y1="0" x2="-22" y2="0" />
-          <line x1="22" y1="0" x2="50" y2="0" />
-          <circle cx="0" cy="0" r="22" fill="white" />
+          <line
+            x1={-VOLTMETER_PORT_DISTANCE}
+            y1="0"
+            x2={-METER_RADIUS}
+            y2="0"
+          />
+          <line
+            x1={METER_RADIUS}
+            y1="0"
+            x2={VOLTMETER_PORT_DISTANCE}
+            y2="0"
+          />
+          <circle
+            cx="0"
+            cy="0"
+            r={METER_RADIUS}
+            fill="none"
+          />
           <text
             x="0"
-            y="7"
+            y="6.5"
             textAnchor="middle"
-            fontSize="22"
+            fontSize={METER_FONT_SIZE}
             fill="currentColor"
             stroke="none"
             fontFamily={textFontFamily}
@@ -449,14 +521,29 @@ function CircuitSymbol({
     case "ammeter":
       body = (
         <>
-          <line x1="-50" y1="0" x2="-22" y2="0" />
-          <line x1="22" y1="0" x2="50" y2="0" />
-          <circle cx="0" cy="0" r="22" fill="white" />
+          <line
+            x1={-AMMETER_PORT_DISTANCE}
+            y1="0"
+            x2={-METER_RADIUS}
+            y2="0"
+          />
+          <line
+            x1={METER_RADIUS}
+            y1="0"
+            x2={AMMETER_PORT_DISTANCE}
+            y2="0"
+          />
+          <circle
+            cx="0"
+            cy="0"
+            r={METER_RADIUS}
+            fill="none"
+          />
           <text
             x="0"
-            y="7"
+            y="5.75"
             textAnchor="middle"
-            fontSize="22"
+            fontSize={METER_FONT_SIZE}
             fill="currentColor"
             stroke="none"
             fontFamily={textFontFamily}
@@ -483,7 +570,7 @@ function CircuitSymbol({
       body = (
         <>
           <line x1="-50" y1="0" x2="-25" y2="0" />
-          <rect x="-25" y="-11" width="50" height="22" fill="white" />
+          <rect x="-25" y="-11" width="50" height="22" fill="none" />
           <line x1="25" y1="0" x2="50" y2="0" />
         </>
       );
@@ -493,9 +580,9 @@ function CircuitSymbol({
       body = (
         <>
           <line x1="-50" y1="0" x2="-43" y2="0" />
-          <rect x="-43" y="-9" width="32" height="18" fill="white" />
+          <rect x="-43" y="-11" width="32" height="22" fill="none" />
           <line x1="-11" y1="0" x2="11" y2="0" />
-          <rect x="11" y="-9" width="32" height="18" fill="white" />
+          <rect x="11" y="-11" width="32" height="22" fill="none" />
           <line x1="43" y1="0" x2="50" y2="0" />
           <line x1="0" y1="0" x2="0" y2={POTENTIAL_DIVIDER_TAP_LENGTH} />
           <circle
@@ -513,7 +600,7 @@ function CircuitSymbol({
       body = (
         <>
           <line x1="-50" y1="0" x2="-25" y2="0" />
-          <rect x="-25" y="-11" width="50" height="22" fill="white" />
+          <rect x="-25" y="-11" width="50" height="22" fill="none" />
           <line x1="25" y1="0" x2="50" y2="0" />
           <line x1="-30" y1="30" x2="28.5" y2="-28.5" strokeLinecap="butt" />
           <ArrowHead x={32} y={-32} angle={-45} />
@@ -523,35 +610,33 @@ function CircuitSymbol({
 
     case "potentiometer": {
       const wiperEndY = verticalFlip ? -40 : 40;
+      const wiperCornerX = Math.max(
+        POTENTIOMETER_WIPER_OFFSET_MIN,
+        Math.min(
+          POTENTIOMETER_WIPER_OFFSET_MAX,
+          wiperOffset
+        )
+      );
 
       body = (
         <>
           <line x1="0" y1="-50" x2="0" y2="-28" />
           <rect
-            x="-16"
+            x="-11"
             y="-28"
-            width="32"
+            width="22"
             height="56"
-            fill="white"
+            fill="none"
           />
           <line x1="0" y1="28" x2="0" y2="50" />
 
-          <line
-            x1="50"
-            y1="0"
-            x2="20.5"
-            y2="0"
+          <polyline
+            points={`${wiperCornerX},${wiperEndY} ${wiperCornerX},0 15.5,0`}
+            fill="none"
             strokeLinecap="butt"
+            strokeLinejoin="miter"
           />
-          <ArrowHead x={16} y={0} angle={180} />
-
-          <line
-            x1="50"
-            y1="0"
-            x2="50"
-            y2={wiperEndY}
-            strokeLinecap="butt"
-          />
+          <ArrowHead x={11} y={0} angle={180} />
         </>
       );
       break;
@@ -561,7 +646,7 @@ function CircuitSymbol({
       body = (
         <>
           <line x1="-50" y1="0" x2="-25" y2="0" />
-          <rect x="-25" y="-11" width="50" height="22" fill="white" />
+          <rect x="-25" y="-11" width="50" height="22" fill="none" />
           <line x1="25" y1="0" x2="50" y2="0" />
           <polyline points="-31,28 -17,28 28,-30" />
         </>
@@ -637,6 +722,17 @@ function PaletteIcon({ type }) {
   );
 }
 
+function getPotentiometerWiperOffset(component) {
+  return Math.max(
+    POTENTIOMETER_WIPER_OFFSET_MIN,
+    Math.min(
+      POTENTIOMETER_WIPER_OFFSET_MAX,
+      component?.wiperOffset ??
+        POTENTIOMETER_WIPER_OFFSET_DEFAULT
+    )
+  );
+}
+
 function getComponentLabelExtent(component, position) {
   if (position === "left" || position === "right") {
     // Side labels sit just beyond the electrical terminal. This also grows
@@ -663,7 +759,7 @@ function getComponentLabelExtent(component, position) {
       return 10;
     case "voltmeter":
     case "ammeter":
-      return 22;
+      return METER_RADIUS;
     case "diode":
       return 25;
     case "resistor":
@@ -674,7 +770,10 @@ function getComponentLabelExtent(component, position) {
     case "thermistor":
       return 31;
     case "potentiometer":
-      return 50;
+      if (position === "right") {
+        return getPotentiometerWiperOffset(component);
+      }
+      return position === "left" ? 11 : 50;
     case "ldr":
       return position === "above" ? 53 : 27;
     case "led":
@@ -770,6 +869,7 @@ function CircuitLabelText({
     fontFamily,
     fontWeight,
     fontStyle,
+    whiteSpace: "pre",
     ...(useLiningNumerals
       ? {
           fontVariantNumeric: "lining-nums",
@@ -785,6 +885,7 @@ function CircuitLabelText({
         y={y}
         textAnchor={textAnchor}
         dominantBaseline="middle"
+        xmlSpace="preserve"
         className="component-label"
         style={{
           ...commonStyle,
@@ -839,6 +940,7 @@ function CircuitLabelText({
         y={y}
         textAnchor="start"
         dominantBaseline="middle"
+        xmlSpace="preserve"
         className="component-label"
         style={{
           ...commonStyle,
@@ -853,6 +955,7 @@ function CircuitLabelText({
         y={y + fontSize * 0.28}
         textAnchor="start"
         dominantBaseline="middle"
+        xmlSpace="preserve"
         className="component-label"
         style={{
           ...commonStyle,
@@ -909,27 +1012,45 @@ function getComponentLabelLayout(component) {
     localPosition
   );
 
-  // Keep normal labels close to the symbol. Larger fonts gain a gradually
-  // larger gap so they do not crowd the component as their glyphs grow.
-  const gap = 11 + Math.max(0, fontSize - 24) * 0.4;
+  // Scale the breathing room with the label itself. Normal 24px labels keep
+  // the established spacing, while smaller labels tuck progressively closer
+  // to the component instead of looking detached.
+  const gap = Math.max(
+    5,
+    11 + (fontSize - 24) * 0.45
+  );
   const verticalTextAllowance =
     position === "above" || position === "below"
       ? fontSize / 2
       : 0;
   const distance = extent + gap + verticalTextAllowance;
 
-  const x =
+  let x =
     position === "left"
       ? -distance
       : position === "right"
         ? distance
         : 0;
-  const y =
+  let y =
     position === "above"
       ? -distance
       : position === "below"
         ? distance
         : 0;
+
+  // The battery symbol is visually weighted slightly to the left of its
+  // electrical centre. Apply a small optical-centre correction to labels that
+  // sit above/below it, rotated with the symbol so it remains correct after R.
+  if (
+    component.type === "battery" &&
+    (position === "above" || position === "below")
+  ) {
+    const opticalOffset = -5;
+    const angle =
+      (((component.rotation ?? 0) * Math.PI) / 180);
+    x += opticalOffset * Math.cos(angle);
+    y += opticalOffset * Math.sin(angle);
+  }
 
   return {
     x,
@@ -939,6 +1060,18 @@ function getComponentLabelLayout(component) {
 }
 
 function getComponentPortDistance(component) {
+  if (component.type === "junction") {
+    return 0;
+  }
+
+  if (component.type === "voltmeter") {
+    return VOLTMETER_PORT_DISTANCE;
+  }
+
+  if (component.type === "ammeter") {
+    return AMMETER_PORT_DISTANCE;
+  }
+
   if (component.type === "wire-segment") {
     return (component.length ?? DEFAULT_WIRE_COMPONENT_LENGTH) / 2;
   }
@@ -963,6 +1096,10 @@ function getComponentPorts(component) {
     return [];
   }
 
+  if (component.type === "junction") {
+    return ["node"];
+  }
+
   if (component.type === "potential-divider") {
     return ["left", "right", "tap"];
   }
@@ -976,6 +1113,10 @@ function getComponentPorts(component) {
 
 function getPortLocalPosition(component, port) {
   const portDistance = getComponentPortDistance(component);
+
+  if (component.type === "junction") {
+    return { x: 0, y: 0 };
+  }
 
   if (
     component.type === "potential-divider" &&
@@ -995,7 +1136,7 @@ function getPortLocalPosition(component, port) {
 
     if (port === "wiper") {
       return {
-        x: PORT_DISTANCE,
+        x: getPotentiometerWiperOffset(component),
         y: component.verticalFlip ? -40 : 40,
       };
     }
@@ -1019,9 +1160,11 @@ function getStraightLeadLength(component, port) {
     case "capacitor":
       return 42;
     case "lamp":
-    case "voltmeter":
-    case "ammeter":
       return 28;
+    case "ammeter":
+      return AMMETER_PORT_DISTANCE - METER_RADIUS;
+    case "voltmeter":
+      return VOLTMETER_PORT_DISTANCE - METER_RADIUS;
     case "fuse":
     case "diode":
     case "led":
@@ -1038,6 +1181,10 @@ function getStraightLeadLength(component, port) {
         : 7;
     case "potentiometer":
       return port === "wiper" ? 40 : 22;
+    case "wire-segment":
+      return component.length ?? DEFAULT_WIRE_COMPONENT_LENGTH;
+    case "junction":
+      return 0;
     default:
       return 0;
   }
@@ -1052,6 +1199,74 @@ function getPortPosition(component, port) {
   return {
     x: component.x + local.x * cos - local.y * sin,
     y: component.y + local.x * sin + local.y * cos,
+  };
+}
+
+function getWireEndpointPosition(endpoint, component) {
+  const terminal = getPortPosition(component, endpoint.port);
+  const leadLength = getStraightLeadLength(
+    component,
+    endpoint.port
+  );
+  const inset = Math.max(
+    0,
+    Math.min(
+      leadLength,
+      Number(endpoint.leadInset) || 0
+    )
+  );
+
+  if (inset <= 0) {
+    return terminal;
+  }
+
+  const outward = getPortDirection(
+    component,
+    endpoint.port
+  );
+
+  return {
+    x: terminal.x - outward.x * inset,
+    y: terminal.y - outward.y * inset,
+  };
+}
+
+function getComponentLeadSegment(component, port) {
+  if (["label", "junction"].includes(component.type)) {
+    return null;
+  }
+
+  if (
+    component.type === "wire-segment" &&
+    port !== "left"
+  ) {
+    return null;
+  }
+
+  const length = getStraightLeadLength(component, port);
+  if (length <= 0) {
+    return null;
+  }
+
+  const terminal = getPortPosition(component, port);
+  const outward = getPortDirection(component, port);
+
+  if (
+    Math.abs(outward.x) < 0.01 &&
+    Math.abs(outward.y) < 0.01
+  ) {
+    return null;
+  }
+
+  return {
+    componentId: component.id,
+    port,
+    length,
+    terminal,
+    inner: {
+      x: terminal.x - outward.x * length,
+      y: terminal.y - outward.y * length,
+    },
   };
 }
 
@@ -1122,7 +1337,8 @@ function getDrawnWireLeadExtension(
   component,
   port,
   segmentDirection,
-  endpointKind
+  endpointKind,
+  leadInset = 0
 ) {
   if (!component || component.type === "wire-segment") {
     return 0;
@@ -1149,7 +1365,12 @@ function getDrawnWireLeadExtension(
     Math.abs(cross) < 0.01 &&
     (endpointKind === "from" ? dot > 0.99 : dot < -0.99);
 
-  return parallelAndContinuous ? leadLength : 0;
+  return parallelAndContinuous
+    ? Math.max(
+        0,
+        leadLength - (Number(leadInset) || 0)
+      )
+    : 0;
 }
 
 function getDrawnWireCurrentArrows(
@@ -1189,7 +1410,8 @@ function getDrawnWireCurrentArrows(
             fromComponent,
             wire.from.port,
             unit,
-            "from"
+            "from",
+            wire.from.leadInset
           )
         : 0;
     const endExtension =
@@ -1198,7 +1420,8 @@ function getDrawnWireCurrentArrows(
             toComponent,
             wire.to.port,
             unit,
-            "to"
+            "to",
+            wire.to.leadInset
           )
         : 0;
 
@@ -1350,7 +1573,9 @@ function rotateComponentAroundPort(component, port) {
 function getPortDirection(component, port) {
   let localDirection;
 
-  if (component.type === "potential-divider" && port === "tap") {
+  if (component.type === "junction") {
+    localDirection = { x: 0, y: 0 };
+  } else if (component.type === "potential-divider" && port === "tap") {
     localDirection = { x: 0, y: 1 };
   } else if (component.type === "potentiometer") {
     if (port === "top") {
@@ -1370,14 +1595,29 @@ function getPortDirection(component, port) {
   const cos = Math.cos(angle);
   const sin = Math.sin(angle);
 
-  // Components only rotate in 90° steps, so rounding gives a clean axis vector.
+  const rotatedDirection = {
+    x: localDirection.x * cos - localDirection.y * sin,
+    y: localDirection.x * sin + localDirection.y * cos,
+  };
+
+  if (component.type === "wire-segment") {
+    return {
+      x:
+        Math.abs(rotatedDirection.x) < 1e-10
+          ? 0
+          : rotatedDirection.x,
+      y:
+        Math.abs(rotatedDirection.y) < 1e-10
+          ? 0
+          : rotatedDirection.y,
+    };
+  }
+
+  // Ordinary circuit symbols still rotate in 90° steps, so rounding keeps
+  // their port directions perfectly cardinal.
   return {
-    x: Math.round(
-      localDirection.x * cos - localDirection.y * sin
-    ),
-    y: Math.round(
-      localDirection.x * sin + localDirection.y * cos
-    ),
+    x: Math.round(rotatedDirection.x),
+    y: Math.round(rotatedDirection.y),
   };
 }
 
@@ -1594,6 +1834,738 @@ function getWireGeometry(
   };
 }
 
+function getOrthogonalSegmentAxis(from, to) {
+  const dx = Math.abs(to.x - from.x);
+  const dy = Math.abs(to.y - from.y);
+
+  if (dy < 0.01) return "horizontal";
+  if (dx < 0.01) return "vertical";
+
+  // Backward-compatible fallback for fixed wires created before axis metadata
+  // existed. The dominant direction is usually the original segment axis.
+  return dx >= dy ? "horizontal" : "vertical";
+}
+
+function getFixedWireGeometry(
+  from,
+  to,
+  bends = [],
+  fixedAxes = null,
+  fixedFromPoint = null,
+  fixedToPoint = null
+) {
+  let workingBends = bends.map((point) => ({
+    x: point.x,
+    y: point.y,
+  }));
+
+  // If both endpoints translated together, translate the stored bends too.
+  // This keeps an intercepted wire rigid when its whole connected group moves.
+  if (fixedFromPoint && fixedToPoint && workingBends.length) {
+    const fromDelta = {
+      x: from.x - fixedFromPoint.x,
+      y: from.y - fixedFromPoint.y,
+    };
+    const toDelta = {
+      x: to.x - fixedToPoint.x,
+      y: to.y - fixedToPoint.y,
+    };
+
+    if (
+      Math.abs(fromDelta.x - toDelta.x) < 0.01 &&
+      Math.abs(fromDelta.y - toDelta.y) < 0.01
+    ) {
+      workingBends = workingBends.map((point) => ({
+        x: point.x + fromDelta.x,
+        y: point.y + fromDelta.y,
+      }));
+    }
+  }
+
+  const referencePoints = [
+    fixedFromPoint ?? from,
+    ...workingBends,
+    fixedToPoint ?? to,
+  ];
+  const expectedSegmentCount = workingBends.length + 1;
+  const axes =
+    Array.isArray(fixedAxes) &&
+    fixedAxes.length === expectedSegmentCount
+      ? fixedAxes
+      : referencePoints
+          .slice(0, -1)
+          .map((point, index) =>
+            getOrthogonalSegmentAxis(
+              point,
+              referencePoints[index + 1]
+            )
+          );
+
+  // A split straight wire has no stored bend. If its endpoints later become
+  // non-aligned, introduce the one corner needed to preserve the original
+  // horizontal/vertical direction rather than drawing a diagonal.
+  if (!workingBends.length) {
+    const axis = axes[0] ?? getOrthogonalSegmentAxis(from, to);
+    const alreadyAligned =
+      axis === "horizontal"
+        ? Math.abs(from.y - to.y) < 0.01
+        : Math.abs(from.x - to.x) < 0.01;
+
+    const points = alreadyAligned
+      ? [from, to]
+      : axis === "horizontal"
+        ? [from, { x: to.x, y: from.y }, to]
+        : [from, { x: from.x, y: to.y }, to];
+
+    return {
+      path: points
+        .map(
+          (point, index) =>
+            `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`
+        )
+        .join(" "),
+      points,
+      handle: null,
+    };
+  }
+
+  const points = [from, ...workingBends, to];
+  const lastIndex = points.length - 1;
+
+  // Enforce every stored segment's original axis. Forward propagation makes
+  // the first bend follow the moved "from" endpoint; backward propagation
+  // makes the last bend follow the moved "to" endpoint. Repeating once is
+  // enough for longer C/fixed routes to settle while retaining middle offsets.
+  for (let pass = 0; pass < 2; pass += 1) {
+    for (let index = 0; index < axes.length; index += 1) {
+      const nextIndex = index + 1;
+      if (nextIndex === lastIndex) continue;
+
+      if (axes[index] === "horizontal") {
+        points[nextIndex].y = points[index].y;
+      } else {
+        points[nextIndex].x = points[index].x;
+      }
+    }
+
+    for (let index = axes.length - 1; index >= 0; index -= 1) {
+      if (index === 0) continue;
+
+      const nextIndex = index + 1;
+      if (axes[index] === "horizontal") {
+        points[index].y = points[nextIndex].y;
+      } else {
+        points[index].x = points[nextIndex].x;
+      }
+    }
+  }
+
+  const cleanPoints = points.filter(
+    (point, index) =>
+      index === 0 ||
+      Math.hypot(
+        point.x - points[index - 1].x,
+        point.y - points[index - 1].y
+      ) > 0.001
+  );
+
+  return {
+    path: cleanPoints
+      .map(
+        (point, index) =>
+          `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`
+      )
+      .join(" "),
+    points: cleanPoints,
+    handle: null,
+  };
+}
+
+function getStoredWireGeometry(wire, componentLookup) {
+  const fromComponent = componentLookup.get(
+    wire.from.componentId
+  );
+  const toComponent = componentLookup.get(
+    wire.to.componentId
+  );
+
+  if (!fromComponent || !toComponent) {
+    return null;
+  }
+
+  const from = getWireEndpointPosition(
+    wire.from,
+    fromComponent
+  );
+  const to = getWireEndpointPosition(
+    wire.to,
+    toComponent
+  );
+
+  if (wire.route === "fixed") {
+    return {
+      fromComponent,
+      toComponent,
+      from,
+      to,
+      geometry: getFixedWireGeometry(
+        from,
+        to,
+        wire.bends ?? [],
+        wire.fixedAxes ?? null,
+        wire.fixedFromPoint ?? null,
+        wire.fixedToPoint ?? null
+      ),
+    };
+  }
+
+  const sharedDirection = getSharedPortDirection(
+    fromComponent,
+    wire.from.port,
+    toComponent,
+    wire.to.port
+  );
+  const liveCDirection =
+    wire.route === "c-shape" && sharedDirection
+      ? directionToKey(sharedDirection)
+      : wire.cDirection;
+
+  return {
+    fromComponent,
+    toComponent,
+    from,
+    to,
+    geometry: getWireGeometry(
+      from,
+      to,
+      wire.route,
+      liveCDirection,
+      wire.cOffset
+    ),
+  };
+}
+
+function closestPointOnSegment(point, from, to) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const lengthSquared = dx * dx + dy * dy;
+
+  if (lengthSquared < 0.0001) {
+    return { x: from.x, y: from.y, t: 0 };
+  }
+
+  const rawT =
+    ((point.x - from.x) * dx +
+      (point.y - from.y) * dy) /
+    lengthSquared;
+  const t = Math.max(0, Math.min(1, rawT));
+
+  return {
+    x: from.x + dx * t,
+    y: from.y + dy * t,
+    t,
+  };
+}
+
+
+function getRoundedClosedPath(
+  sourcePoints,
+  cornerRadius = 7
+) {
+  const points = sourcePoints.filter(
+    (point, index) =>
+      index === 0 ||
+      Math.hypot(
+        point.x - sourcePoints[index - 1].x,
+        point.y - sourcePoints[index - 1].y
+      ) > 0.001
+  );
+
+  if (points.length < 3) {
+    return null;
+  }
+
+  const corners = points.map((point, index) => {
+    const previous =
+      points[(index - 1 + points.length) % points.length];
+    const next = points[(index + 1) % points.length];
+
+    const previousDx = previous.x - point.x;
+    const previousDy = previous.y - point.y;
+    const nextDx = next.x - point.x;
+    const nextDy = next.y - point.y;
+    const previousLength = Math.hypot(
+      previousDx,
+      previousDy
+    );
+    const nextLength = Math.hypot(nextDx, nextDy);
+    const radius = Math.min(
+      cornerRadius,
+      previousLength / 2,
+      nextLength / 2
+    );
+
+    return {
+      point,
+      start: {
+        x:
+          point.x +
+          (previousDx / previousLength) * radius,
+        y:
+          point.y +
+          (previousDy / previousLength) * radius,
+      },
+      end: {
+        x: point.x + (nextDx / nextLength) * radius,
+        y: point.y + (nextDy / nextLength) * radius,
+      },
+    };
+  });
+
+  let path = `M ${corners[0].end.x} ${corners[0].end.y}`;
+
+  for (let index = 1; index <= corners.length; index += 1) {
+    const corner = corners[index % corners.length];
+    path +=
+      ` L ${corner.start.x} ${corner.start.y}` +
+      ` Q ${corner.point.x} ${corner.point.y}` +
+      ` ${corner.end.x} ${corner.end.y}`;
+  }
+
+  return `${path} Z`;
+}
+
+
+function getPolylineCorridorOutline(
+  sourcePoints,
+  radius = WIRE_TOOL_HIT_WIDTH / 2
+) {
+  const points = sourcePoints.filter(
+    (point, index) =>
+      index === 0 ||
+      Math.hypot(
+        point.x - sourcePoints[index - 1].x,
+        point.y - sourcePoints[index - 1].y
+      ) > 0.001
+  );
+
+  if (points.length < 2) {
+    return null;
+  }
+
+  const segments = [];
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const from = points[index];
+    const to = points[index + 1];
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const length = Math.hypot(dx, dy);
+
+    if (length < 0.001) continue;
+
+    const unit = { x: dx / length, y: dy / length };
+    segments.push({
+      unit,
+      normal: { x: -unit.y, y: unit.x },
+    });
+  }
+
+  if (!segments.length) {
+    return null;
+  }
+
+  function offsetJoin(point, previous, next, side) {
+    const a = {
+      x: point.x + previous.normal.x * radius * side,
+      y: point.y + previous.normal.y * radius * side,
+    };
+    const b = {
+      x: point.x + next.normal.x * radius * side,
+      y: point.y + next.normal.y * radius * side,
+    };
+
+    const denominator =
+      previous.unit.x * next.unit.y -
+      previous.unit.y * next.unit.x;
+
+    if (Math.abs(denominator) < 0.0001) {
+      return {
+        x: (a.x + b.x) / 2,
+        y: (a.y + b.y) / 2,
+      };
+    }
+
+    const deltaX = b.x - a.x;
+    const deltaY = b.y - a.y;
+    const t =
+      (deltaX * next.unit.y -
+        deltaY * next.unit.x) /
+      denominator;
+
+    return {
+      x: a.x + previous.unit.x * t,
+      y: a.y + previous.unit.y * t,
+    };
+  }
+
+  function sidePoints(side) {
+    const first = segments[0];
+    const last = segments[segments.length - 1];
+    const result = [
+      {
+        x:
+          points[0].x +
+          first.normal.x * radius * side -
+          first.unit.x * radius,
+        y:
+          points[0].y +
+          first.normal.y * radius * side -
+          first.unit.y * radius,
+      },
+    ];
+
+    for (let index = 1; index < points.length - 1; index += 1) {
+      result.push(
+        offsetJoin(
+          points[index],
+          segments[index - 1],
+          segments[index],
+          side
+        )
+      );
+    }
+
+    result.push({
+      x:
+        points.at(-1).x +
+        last.normal.x * radius * side +
+        last.unit.x * radius,
+      y:
+        points.at(-1).y +
+        last.normal.y * radius * side +
+        last.unit.y * radius,
+    });
+
+    return result;
+  }
+
+  const left = sidePoints(1);
+  const right = sidePoints(-1);
+  const outlinePoints = [
+    ...left,
+    ...right.slice().reverse(),
+  ];
+
+  return {
+    outlinePath: getRoundedClosedPath(
+      outlinePoints,
+      7
+    ),
+  };
+}
+
+
+function findNearestComponentLeadPoint(
+  point,
+  allComponents,
+  maxDistance,
+  onlyComponentId = null,
+  onlyPort = null
+) {
+  let best = null;
+
+  for (const component of allComponents) {
+    if (
+      onlyComponentId &&
+      component.id !== onlyComponentId
+    ) {
+      continue;
+    }
+
+    for (const port of getComponentPorts(component)) {
+      if (onlyPort && port !== onlyPort) {
+        continue;
+      }
+
+      const segment = getComponentLeadSegment(
+        component,
+        port
+      );
+      if (!segment) continue;
+
+      const closest = closestPointOnSegment(
+        point,
+        segment.terminal,
+        segment.inner
+      );
+      const snappedPosition = snapPointAlongWireSegment(
+        closest,
+        segment.terminal,
+        segment.inner
+      );
+      const distance = Math.hypot(
+        point.x - snappedPosition.x,
+        point.y - snappedPosition.y
+      );
+
+      if (
+        distance > maxDistance ||
+        (best && distance >= best.distance)
+      ) {
+        continue;
+      }
+
+      const leadInset = Math.hypot(
+        snappedPosition.x - segment.terminal.x,
+        snappedPosition.y - segment.terminal.y
+      );
+
+      best = {
+        kind: "lead",
+        componentId: component.id,
+        port,
+        leadInset,
+        position: snappedPosition,
+        distance,
+      };
+    }
+  }
+
+  return best;
+}
+
+function snapPointAlongWireSegment(point, from, to) {
+  const horizontal = Math.abs(to.y - from.y) < 0.01;
+  const vertical = Math.abs(to.x - from.x) < 0.01;
+
+  if (horizontal) {
+    const minX = Math.min(from.x, to.x);
+    const maxX = Math.max(from.x, to.x);
+
+    return {
+      x: Math.max(minX, Math.min(maxX, snap(point.x))),
+      y: from.y,
+    };
+  }
+
+  if (vertical) {
+    const minY = Math.min(from.y, to.y);
+    const maxY = Math.max(from.y, to.y);
+
+    return {
+      x: from.x,
+      y: Math.max(minY, Math.min(maxY, snap(point.y))),
+    };
+  }
+
+  return { x: point.x, y: point.y };
+}
+
+function getBlackJunctionTargets(
+  allComponents,
+  allWires,
+  componentLookup
+) {
+  const targets = [];
+  const connectionCounts = new Map();
+
+  for (const wire of allWires) {
+    for (const endpoint of [wire.from, wire.to]) {
+      const component = componentLookup.get(
+        endpoint.componentId
+      );
+
+      if (component?.type === "junction") {
+        connectionCounts.set(
+          component.id,
+          (connectionCounts.get(component.id) ?? 0) + 1
+        );
+      }
+    }
+  }
+
+  for (const component of allComponents) {
+    if (
+      component.type !== "junction" ||
+      (connectionCounts.get(component.id) ?? 0) < 3
+    ) {
+      continue;
+    }
+
+    targets.push({
+      kind: "junction",
+      endpoint: {
+        componentId: component.id,
+        port: "node",
+      },
+      position: { x: component.x, y: component.y },
+    });
+  }
+
+  for (const wire of allWires) {
+    for (const endpoint of [wire.from, wire.to]) {
+      if ((Number(endpoint.leadInset) || 0) <= 0.01) {
+        continue;
+      }
+
+      const component = componentLookup.get(
+        endpoint.componentId
+      );
+      if (!component) continue;
+
+      const position = getWireEndpointPosition(
+        endpoint,
+        component
+      );
+
+      const alreadyIncluded = targets.some(
+        (target) =>
+          Math.hypot(
+            target.position.x - position.x,
+            target.position.y - position.y
+          ) < 0.01
+      );
+
+      if (alreadyIncluded) {
+        continue;
+      }
+
+      targets.push({
+        kind: "lead-junction",
+        endpoint: { ...endpoint },
+        position,
+      });
+    }
+  }
+
+  return targets;
+}
+
+function findNearestBlackJunctionPoint(
+  point,
+  allComponents,
+  allWires,
+  componentLookup,
+  maxDistance
+) {
+  let best = null;
+
+  for (const target of getBlackJunctionTargets(
+    allComponents,
+    allWires,
+    componentLookup
+  )) {
+    const distance = Math.hypot(
+      point.x - target.position.x,
+      point.y - target.position.y
+    );
+
+    if (
+      distance <= maxDistance &&
+      (!best || distance < best.distance)
+    ) {
+      best = {
+        ...target,
+        distance,
+      };
+    }
+  }
+
+  return best;
+}
+
+function findNearestWirePoint(
+  point,
+  allWires,
+  componentLookup,
+  maxDistance,
+  onlyWireId = null
+) {
+  let best = null;
+
+  for (const wire of allWires) {
+    if (onlyWireId && wire.id !== onlyWireId) {
+      continue;
+    }
+
+    const resolved = getStoredWireGeometry(
+      wire,
+      componentLookup
+    );
+    if (!resolved) continue;
+
+    const points = resolved.geometry.points;
+
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const segmentFrom = points[index];
+      const segmentTo = points[index + 1];
+      const closest = closestPointOnSegment(
+        point,
+        segmentFrom,
+        segmentTo
+      );
+      const distance = Math.hypot(
+        point.x - closest.x,
+        point.y - closest.y
+      );
+
+      if (
+        distance <= maxDistance &&
+        (!best || distance < best.distance)
+      ) {
+        best = {
+          wireId: wire.id,
+          segmentIndex: index,
+          position: snapPointAlongWireSegment(
+            closest,
+            segmentFrom,
+            segmentTo
+          ),
+          distance,
+          geometry: resolved.geometry,
+        };
+      }
+    }
+  }
+
+  return best;
+}
+
+function makeFixedWirePiece(
+  fromEndpoint,
+  toEndpoint,
+  points,
+  currentArrow = "none"
+) {
+  return {
+    id: uid(),
+    from: { ...fromEndpoint },
+    to: { ...toEndpoint },
+    route: "fixed",
+    bends: points
+      .slice(1, -1)
+      .map((point) => ({ x: point.x, y: point.y })),
+    fixedAxes: points
+      .slice(0, -1)
+      .map((point, index) =>
+        getOrthogonalSegmentAxis(
+          point,
+          points[index + 1]
+        )
+      ),
+    fixedFromPoint: {
+      x: points[0].x,
+      y: points[0].y,
+    },
+    fixedToPoint: {
+      x: points.at(-1).x,
+      y: points.at(-1).y,
+    },
+    currentArrow,
+  };
+}
+
 function wirePath(from, to, route = "horizontal-first") {
   return getWireGeometry(from, to, route).path;
 }
@@ -1634,41 +2606,25 @@ function convertWireToolWireToComponents(
   wire,
   componentLookup
 ) {
-  const fromComponent = componentLookup.get(
-    wire.from.componentId
+  const resolved = getStoredWireGeometry(
+    wire,
+    componentLookup
   );
-  const toComponent = componentLookup.get(wire.to.componentId);
 
-  if (!fromComponent || !toComponent) {
+  if (!resolved) {
     return [];
   }
 
-  const from = getPortPosition(fromComponent, wire.from.port);
-  const to = getPortPosition(toComponent, wire.to.port);
-  const sharedDirection = getSharedPortDirection(
-    fromComponent,
-    wire.from.port,
-    toComponent,
-    wire.to.port
-  );
-  const liveCDirection =
-    wire.route === "c-shape" && sharedDirection
-      ? directionToKey(sharedDirection)
-      : wire.cDirection;
-  const geometry = getWireGeometry(
-    from,
-    to,
-    wire.route,
-    liveCDirection,
-    wire.cOffset
-  );
-
   const converted = [];
 
-  for (let index = 0; index < geometry.points.length - 1; index += 1) {
+  for (
+    let index = 0;
+    index < resolved.geometry.points.length - 1;
+    index += 1
+  ) {
     const component = makeWireComponentFromSegment(
-      geometry.points[index],
-      geometry.points[index + 1]
+      resolved.geometry.points[index],
+      resolved.geometry.points[index + 1]
     );
 
     if (component) {
@@ -1679,11 +2635,15 @@ function convertWireToolWireToComponents(
   return converted;
 }
 
+
 function findNearestTerminal(point, allComponents, maxDistance) {
   let best = null;
 
   for (const component of allComponents) {
-    if (component.type === "label") {
+    if (
+      component.type === "label" ||
+      component.type === "junction"
+    ) {
       continue;
     }
 
@@ -1726,22 +2686,41 @@ function rotateDirectionKeyClockwise(key) {
 function getComponentMarqueeBounds(component) {
   const portDistance = getComponentPortDistance(component);
   const isWireSegment = component.type === "wire-segment";
-  const isVariableWidthComponent =
-    isWireSegment || component.type === "cell";
 
-  const bodyHalfWidth = isVariableWidthComponent
-    ? portDistance
-    : component.type === "label"
-      ? 80
-      : 50;
+  if (isWireSegment) {
+    const left = getPortPosition(component, "left");
+    const right = getPortPosition(component, "right");
+    const margin = 7;
 
+    return {
+      left: Math.min(left.x, right.x) - margin,
+      right: Math.max(left.x, right.x) + margin,
+      top: Math.min(left.y, right.y) - margin,
+      bottom: Math.max(left.y, right.y) + margin,
+    };
+  }
+
+  const bodyHalfWidth =
+    component.type === "label" ? 80 : portDistance;
+  const visualHalfHeight =
+    component.type === "label"
+      ? 16
+      : Math.max(
+          getComponentLabelExtent(component, "above"),
+          getComponentLabelExtent(component, "below")
+        );
+
+  // Marquee selection should follow the visible symbol much more closely than
+  // the normal click/grab hit area. A small margin keeps thin parts selectable
+  // without allowing a box that merely passes nearby to scoop them up.
   let halfWidth =
-    component.type === "label" ? 90 : bodyHalfWidth + 11;
-  let halfHeight = isWireSegment
-    ? 24
-    : component.type === "label"
-      ? 28
-      : 61;
+    component.type === "label"
+      ? 82
+      : bodyHalfWidth + 3;
+  let halfHeight =
+    component.type === "label"
+      ? 18
+      : visualHalfHeight + 3;
 
   const rotation =
     ((component.rotation ?? 0) % 360 + 360) % 360;
@@ -1779,9 +2758,13 @@ function getComponentCollisionHalfSize(component) {
     case "capacitor":
       return { x: 10, y: 26 };
     case "lamp":
+      return { x: 24, y: 24 };
     case "voltmeter":
     case "ammeter":
-      return { x: 24, y: 24 };
+      return {
+        x: METER_RADIUS + 2,
+        y: METER_RADIUS + 2,
+      };
     case "fuse":
       return { x: 27, y: 12 };
     case "diode":
@@ -1883,6 +2866,10 @@ function normalizeMarquee(startX, startY, currentX, currentY) {
 }
 
 function componentTouchesMarquee(component, marquee) {
+  if (component.type === "junction") {
+    return false;
+  }
+
   const bounds = getComponentMarqueeBounds(component);
 
   return !(
@@ -1932,6 +2919,7 @@ function App() {
   const [wireSnapTarget, setWireSnapTarget] = useState(null);
   const [wireRoute, setWireRoute] = useState("horizontal-first");
   const [showGrid, setShowGrid] = useState(true);
+  const [snapObjects, setSnapObjects] = useState(true);
   const [showBlueConnectors, setShowBlueConnectors] =
     useState(true);
   const [fancyText, setFancyText] = useState(false);
@@ -1949,6 +2937,17 @@ function App() {
     () => new Map(components.map((component) => [component.id, component])),
     [components]
   );
+
+  const blackJunctionTargets = useMemo(
+    () =>
+      getBlackJunctionTargets(
+        components,
+        wires,
+        componentMap
+      ),
+    [components, wires, componentMap]
+  );
+
 
   const selectedComponents = useMemo(
     () =>
@@ -1969,7 +2968,11 @@ function App() {
       : null;
 
   const selectedWireCanFlip = (() => {
-    if (!selectedWire || selectedWire.route === "c-shape") {
+    if (
+      !selectedWire ||
+      selectedWire.route === "c-shape" ||
+      selectedWire.route === "fixed"
+    ) {
       return false;
     }
 
@@ -1984,13 +2987,13 @@ function App() {
       return false;
     }
 
-    const from = getPortPosition(
-      fromComponent,
-      selectedWire.from.port
+    const from = getWireEndpointPosition(
+      selectedWire.from,
+      fromComponent
     );
-    const to = getPortPosition(
-      toComponent,
-      selectedWire.to.port
+    const to = getWireEndpointPosition(
+      selectedWire.to,
+      toComponent
     );
 
     return from.x !== to.x && from.y !== to.y;
@@ -2076,29 +3079,169 @@ function App() {
     });
   }
 
-  function svgPoint(event) {
+  function clientPointToSvg(clientX, clientY) {
     const svg = svgRef.current;
-    if (!svg) return { x: 0, y: 0 };
+    if (!svg) return null;
 
     const point = svg.createSVGPoint();
-    point.x = event.clientX;
-    point.y = event.clientY;
+    point.x = clientX;
+    point.y = clientY;
 
     const matrix = svg.getScreenCTM();
-    if (!matrix) return { x: 0, y: 0 };
+    if (!matrix) return null;
 
     return point.matrixTransform(matrix.inverse());
   }
 
-  function addComponent(type, x = WIDTH / 2, y = HEIGHT / 2) {
+  function svgPoint(event) {
+    return (
+      clientPointToSvg(event.clientX, event.clientY) ?? {
+        x: 0,
+        y: 0,
+      }
+    );
+  }
+
+  function getVisibleCanvasSpawnPoint(index = 0) {
+    const svg = svgRef.current;
+    const viewport = canvasViewportRef.current;
+
+    if (!svg || !viewport) {
+      return {
+        x: WIDTH / 2,
+        y: HEIGHT / 2,
+      };
+    }
+
+    const svgRect = svg.getBoundingClientRect();
+    const viewportRect = viewport.getBoundingClientRect();
+
+    const visibleLeft = Math.max(
+      svgRect.left,
+      viewportRect.left
+    );
+    const visibleTop = Math.max(
+      svgRect.top,
+      viewportRect.top
+    );
+    const visibleRight = Math.min(
+      svgRect.right,
+      viewportRect.right
+    );
+    const visibleBottom = Math.min(
+      svgRect.bottom,
+      viewportRect.bottom
+    );
+
+    if (
+      visibleRight <= visibleLeft ||
+      visibleBottom <= visibleTop
+    ) {
+      return {
+        x: WIDTH / 2,
+        y: HEIGHT / 2,
+      };
+    }
+
+    const topLeft = clientPointToSvg(
+      visibleLeft,
+      visibleTop
+    );
+    const bottomRight = clientPointToSvg(
+      visibleRight,
+      visibleBottom
+    );
+
+    if (!topLeft || !bottomRight) {
+      return {
+        x: WIDTH / 2,
+        y: HEIGHT / 2,
+      };
+    }
+
+    const left = Math.max(
+      0,
+      Math.min(topLeft.x, bottomRight.x)
+    );
+    const right = Math.min(
+      WIDTH,
+      Math.max(topLeft.x, bottomRight.x)
+    );
+    const top = Math.max(
+      0,
+      Math.min(topLeft.y, bottomRight.y)
+    );
+    const bottom = Math.min(
+      HEIGHT,
+      Math.max(topLeft.y, bottomRight.y)
+    );
+
+    const visibleWidth = Math.max(0, right - left);
+    const visibleHeight = Math.max(0, bottom - top);
+
+    // Keep enough room for a normal symbol around the spawn point, while
+    // gracefully reducing that margin if the visible area is very small.
+    const margin = Math.min(
+      70,
+      visibleWidth * 0.24,
+      visibleHeight * 0.24
+    );
+    const minX = left + margin;
+    const maxX = right - margin;
+    const minY = top + margin;
+    const maxY = bottom - margin;
+
+    const centreX = (left + right) / 2;
+    const centreY = (top + bottom) / 2;
+    const stagger = [
+      { x: 0, y: 0 },
+      { x: 30, y: 30 },
+      { x: -30, y: 30 },
+      { x: 30, y: -30 },
+      { x: -30, y: -30 },
+      { x: 60, y: 0 },
+      { x: 0, y: 60 },
+      { x: -60, y: 0 },
+    ][index % 8];
+
+    return {
+      x: Math.max(
+        Math.min(minX, maxX),
+        Math.min(
+          Math.max(minX, maxX),
+          centreX + stagger.x
+        )
+      ),
+      y: Math.max(
+        Math.min(minY, maxY),
+        Math.min(
+          Math.max(minY, maxY),
+          centreY + stagger.y
+        )
+      ),
+    };
+  }
+
+  function addComponent(type, x = null, y = null) {
     rotationPivotRef.current = null;
-    const index = components.length % 8;
-    const spawnOffset = index * 30;
+    const index =
+      components.filter(
+        (component) => component.type !== "junction"
+      ).length % 8;
+    const hasExplicitPosition =
+      Number.isFinite(x) && Number.isFinite(y);
+    const spawnPoint = hasExplicitPosition
+      ? { x, y }
+      : getVisibleCanvasSpawnPoint(index);
     const component = {
       id: uid(),
       type,
-      x: snap(x + spawnOffset),
-      y: snap(y + spawnOffset),
+      x: snapObjects
+        ? snap(spawnPoint.x)
+        : spawnPoint.x,
+      y: snapObjects
+        ? snap(spawnPoint.y)
+        : spawnPoint.y,
       rotation: 0,
       label: type === "label" ? "Label" : "",
       labelPosition: type === "label" ? "center" : "below",
@@ -2109,7 +3252,11 @@ function App() {
         ? { dividerLabel1: "", dividerLabel2: "" }
         : {}),
       ...(type === "potentiometer"
-        ? { verticalFlip: false }
+        ? {
+            verticalFlip: false,
+            wiperOffset:
+              POTENTIOMETER_WIPER_OFFSET_DEFAULT,
+          }
         : {}),
       ...(type === "wire-segment"
         ? {
@@ -2153,10 +3300,36 @@ function App() {
       return;
     }
 
-    // A clear click on a component body means "select this", even if the
-    // Wire tool is currently active. Terminal clicks never reach this handler
-    // because handlePortClick() stops propagation first.
+    // In Wire mode, an already-rendered snap target is authoritative over
+    // whichever SVG hit area happens to receive the pointer-down.
+    if (
+      mode === "wire" &&
+      wireStart &&
+      finishWireAtVisibleSnapTarget(event)
+    ) {
+      return;
+    }
+
+    // Visible component leads — including the full standalone Wire component
+    // line — are valid electrical connection targets.
     if (mode === "wire") {
+      const leadTarget = findNearestComponentLeadPoint(
+        svgPoint(event),
+        components,
+        WIRE_TOOL_SNAP_RADIUS / zoom,
+        component.id
+      );
+
+      if (leadTarget) {
+        handleComponentLeadClick(
+          event,
+          component.id,
+          leadTarget.port,
+          leadTarget
+        );
+        return;
+      }
+
       event.preventDefault();
       setMode("select");
       setWireStart(null);
@@ -2262,10 +3435,29 @@ function App() {
     const oppositeEnd = end === "left" ? "right" : "left";
     const fixed = getPortPosition(component, oppositeEnd);
     const draggedDirection = getPortDirection(component, end);
-    const currentAxis =
-      Math.abs(draggedDirection.x) > 0 ? "horizontal" : "vertical";
 
     svgRef.current?.setPointerCapture?.(event.pointerId);
+
+    const bodyAttachments = [];
+
+    for (const wire of wires) {
+      for (const endpointKey of ["from", "to"]) {
+        const endpoint = wire[endpointKey];
+        const leadInset = Number(endpoint.leadInset) || 0;
+
+        if (
+          endpoint.componentId === component.id &&
+          endpoint.port === "left" &&
+          leadInset > 0.001
+        ) {
+          bodyAttachments.push({
+            wireId: wire.id,
+            endpointKey,
+            originLeadInset: leadInset,
+          });
+        }
+      }
+    }
 
     wireSegmentResizeRef.current = {
       componentId: component.id,
@@ -2274,13 +3466,17 @@ function App() {
       endSign: end === "left" ? -1 : 1,
       fixedX: fixed.x,
       fixedY: fixed.y,
-      directionX: draggedDirection.x,
-      directionY: draggedDirection.y,
-      currentAxis,
+      fallbackDirectionX: draggedDirection.x,
+      fallbackDirectionY: draggedDirection.y,
       originX: component.x,
       originY: component.y,
       originLength: length,
       originRotation: component.rotation,
+      originComponent: { ...component },
+      otherComponents: components
+        .filter((item) => item.id !== component.id)
+        .map((item) => ({ ...item })),
+      bodyAttachments,
       undoSnapshot: makeUndoSnapshot(),
       changed: false,
     };
@@ -2396,116 +3592,159 @@ function App() {
       wireSegmentResize &&
       event.pointerId === wireSegmentResize.pointerId
     ) {
-      const dx = point.x - wireSegmentResize.fixedX;
-      const dy = point.y - wireSegmentResize.fixedY;
-      const absDx = Math.abs(dx);
-      const absDy = Math.abs(dy);
+      let targetPoint = point;
 
-      // Infer the most natural axis from the pointer. A small hysteresis band
-      // around the diagonal prevents the wire flickering between horizontal
-      // and vertical while the user is deciding where to put it.
-      let nextAxis = wireSegmentResize.currentAxis;
-      const axisSwitchMargin = GRID * 0.75;
+      if (snapObjects) {
+        const terminalTarget = findNearestTerminal(
+          point,
+          components.filter(
+            (component) =>
+              component.id !== wireSegmentResize.componentId
+          ),
+          WIRE_TOOL_SNAP_RADIUS / zoom
+        );
+
+        targetPoint = terminalTarget
+          ? terminalTarget.position
+          : {
+              x: snap(point.x),
+              y: snap(point.y),
+            };
+      }
+
+      let dx = targetPoint.x - wireSegmentResize.fixedX;
+      let dy = targetPoint.y - wireSegmentResize.fixedY;
+      let rawLength = Math.hypot(dx, dy);
+
+      let unitX;
+      let unitY;
+
+      if (rawLength < 0.001) {
+        unitX =
+          wireSegmentResize.fallbackDirectionX || 1;
+        unitY =
+          wireSegmentResize.fallbackDirectionY || 0;
+        rawLength = 0;
+      } else {
+        unitX = dx / rawLength;
+        unitY = dy / rawLength;
+      }
+
+      const nextLength = Math.max(
+        MIN_WIRE_COMPONENT_LENGTH,
+        rawLength
+      );
+      const draggedX =
+        wireSegmentResize.fixedX + unitX * nextLength;
+      const draggedY =
+        wireSegmentResize.fixedY + unitY * nextLength;
+
+      // Local +x always points from the Wire component's left endpoint toward
+      // its right endpoint. endSign converts the fixed-to-dragged direction
+      // into that local-axis direction for either resize handle.
+      const axisX = unitX * wireSegmentResize.endSign;
+      const axisY = unitY * wireSegmentResize.endSign;
+      const nextRotation =
+        ((Math.atan2(axisY, axisX) * 180) / Math.PI + 360) %
+        360;
+
+      const originComponent =
+        wireSegmentResize.originComponent;
+      const candidate = {
+        ...originComponent,
+        rotation: nextRotation,
+        length: nextLength,
+        x: (wireSegmentResize.fixedX + draggedX) / 2,
+        y: (wireSegmentResize.fixedY + draggedY) / 2,
+      };
+      const collisionComponents = [
+        candidate,
+        ...wireSegmentResize.otherComponents,
+      ];
 
       if (
-        nextAxis === "horizontal" &&
-        absDy > absDx + axisSwitchMargin
+        wireComponentHasForbiddenOverlap(
+          candidate,
+          collisionComponents,
+          new Set([candidate.id])
+        )
       ) {
-        nextAxis = "vertical";
-      } else if (
-        nextAxis === "vertical" &&
-        absDx > absDy + axisSwitchMargin
-      ) {
-        nextAxis = "horizontal";
+        return;
       }
 
-      let directionX = 0;
-      let directionY = 0;
-      let nextLength;
+      wireSegmentResize.changed =
+        wireSegmentResize.changed ||
+        Math.abs(candidate.x - originComponent.x) > 0.001 ||
+        Math.abs(candidate.y - originComponent.y) > 0.001 ||
+        Math.abs(
+          (candidate.length ?? 0) -
+            (originComponent.length ?? 0)
+        ) > 0.001 ||
+        Math.abs(
+          (candidate.rotation ?? 0) -
+            (originComponent.rotation ?? 0)
+        ) > 0.001;
 
-      if (nextAxis === "horizontal") {
-        directionX =
-          dx === 0
-            ? wireSegmentResize.directionX || 1
-            : Math.sign(dx);
-        nextLength = Math.max(
-          MIN_WIRE_COMPONENT_LENGTH,
-          absDx
-        );
-      } else {
-        directionY =
-          dy === 0
-            ? wireSegmentResize.directionY || 1
-            : Math.sign(dy);
-        nextLength = Math.max(
-          MIN_WIRE_COMPONENT_LENGTH,
-          absDy
-        );
-      }
-
-      // The dragged endpoint can cross the fixed endpoint. Work out which
-      // component rotation puts that named endpoint on the side being dragged.
-      const axisX = directionX * wireSegmentResize.endSign;
-      const axisY = directionY * wireSegmentResize.endSign;
-      const nextRotation =
-        axisX === 1
-          ? 0
-          : axisY === 1
-            ? 90
-            : axisX === -1
-              ? 180
-              : 270;
-
-      setComponents((current) => {
-        const original = current.find(
-          (component) =>
-            component.id === wireSegmentResize.componentId
-        );
-        if (!original) {
-          return current;
-        }
-
-        const candidate = {
-          ...original,
-          rotation: nextRotation,
-          length: nextLength,
-          x:
-            wireSegmentResize.fixedX +
-            directionX * (nextLength / 2),
-          y:
-            wireSegmentResize.fixedY +
-            directionY * (nextLength / 2),
-        };
-
-        if (
-          wireComponentHasForbiddenOverlap(
-            candidate,
-            current,
-            new Set([candidate.id])
-          )
-        ) {
-          return current;
-        }
-
-        wireSegmentResize.currentAxis = nextAxis;
-        wireSegmentResize.directionX = directionX;
-        wireSegmentResize.directionY = directionY;
-        wireSegmentResize.changed =
-          wireSegmentResize.changed ||
-          Math.abs(candidate.x - original.x) > 0.001 ||
-          Math.abs(candidate.y - original.y) > 0.001 ||
-          Math.abs(
-            (candidate.length ?? 0) -
-              (original.length ?? 0)
-          ) > 0.001 ||
-          candidate.rotation !== original.rotation;
-
-        return current.map((component) =>
+      setComponents((current) =>
+        current.map((component) =>
           component.id === candidate.id
             ? candidate
             : component
+        )
+      );
+
+      if (wireSegmentResize.bodyAttachments.length) {
+        const attachments =
+          wireSegmentResize.bodyAttachments;
+        const attachmentFor = (wireId, endpointKey) =>
+          attachments.find(
+            (attachment) =>
+              attachment.wireId === wireId &&
+              attachment.endpointKey === endpointKey
+          );
+
+        setWires((current) =>
+          current.map((wire) => {
+            let nextWire = wire;
+
+            for (const endpointKey of ["from", "to"]) {
+              const attachment = attachmentFor(
+                wire.id,
+                endpointKey
+              );
+              if (!attachment) continue;
+
+              // leadInset is measured from the standalone Wire's left end.
+              // If the left end is the one being dragged, compensate by the
+              // length change so the junction keeps the same distance from
+              // the fixed right end. If the right end is dragged, the left
+              // end is fixed and the original inset already does exactly
+              // what we want.
+              const desiredInset =
+                wireSegmentResize.end === "left"
+                  ? attachment.originLeadInset +
+                    (nextLength -
+                      wireSegmentResize.originLength)
+                  : attachment.originLeadInset;
+              const nextLeadInset = Math.max(
+                0,
+                Math.min(nextLength, desiredInset)
+              );
+
+              nextWire = {
+                ...nextWire,
+                [endpointKey]: {
+                  ...nextWire[endpointKey],
+                  leadInset: nextLeadInset,
+                },
+              };
+            }
+
+            return nextWire;
+          })
         );
-      });
+      }
+
       return;
     }
 
@@ -2568,27 +3807,156 @@ function App() {
     }
 
     if (wireStart) {
-      const snapTarget = findNearestTerminal(
+      const maxSnapDistance =
+        WIRE_TOOL_SNAP_RADIUS / zoom;
+      const blackSnapDistance =
+        BLACK_JUNCTION_SNAP_RADIUS / zoom;
+
+      const terminalTarget = findNearestTerminal(
         point,
         components,
-        WIRE_TOOL_SNAP_RADIUS / zoom
+        maxSnapDistance
       );
-
-      if (
-        snapTarget &&
+      const validTerminalTarget =
+        terminalTarget &&
         !(
-          snapTarget.componentId === wireStart.componentId &&
-          snapTarget.port === wireStart.port
+          terminalTarget.componentId ===
+            wireStart.componentId &&
+          terminalTarget.port === wireStart.port &&
+          !wireStart.leadInset
         )
-      ) {
-        setWirePreview(snapTarget.position);
+          ? terminalTarget
+          : null;
+
+      const leadTarget = findNearestComponentLeadPoint(
+        point,
+        components,
+        maxSnapDistance
+      );
+      const wireTarget = findNearestWirePoint(
+        point,
+        wires,
+        componentMap,
+        maxSnapDistance
+      );
+      const blackJunctionTarget =
+        findNearestBlackJunctionPoint(
+          point,
+          components,
+          wires,
+          componentMap,
+          blackSnapDistance
+        );
+
+      const liveStartComponent = componentMap.get(
+        wireStart.componentId
+      );
+      const liveStartPoint = liveStartComponent
+        ? getWireEndpointPosition(
+            wireStart,
+            liveStartComponent
+          )
+        : null;
+      const isDifferentFromStart = (target) =>
+        target &&
+        (!liveStartPoint ||
+          Math.hypot(
+            target.position.x - liveStartPoint.x,
+            target.position.y - liveStartPoint.y
+          ) > 0.01);
+
+      const validBlackJunctionTarget =
+        isDifferentFromStart(blackJunctionTarget)
+          ? blackJunctionTarget
+          : null;
+      const validLeadTarget =
+        isDifferentFromStart(leadTarget)
+          ? leadTarget
+          : null;
+      const validWireTarget =
+        isDifferentFromStart(wireTarget)
+          ? wireTarget
+          : null;
+
+      if (validBlackJunctionTarget) {
+        // A visible black junction is electrically explicit, so it always
+        // wins while its snap radius is active. Blue terminals never override
+        // it, even when their hit/snap areas overlap.
+        setWirePreview(
+          validBlackJunctionTarget.position
+        );
         setWireSnapTarget({
-          componentId: snapTarget.componentId,
-          port: snapTarget.port,
+          kind: "black-junction",
+          junctionKind:
+            validBlackJunctionTarget.kind,
+          endpoint: {
+            ...validBlackJunctionTarget.endpoint,
+          },
+          position:
+            validBlackJunctionTarget.position,
         });
       } else {
-        setWirePreview(point);
-        setWireSnapTarget(null);
+        // With no black junction nearby, component terminals remain slightly
+        // stronger than ordinary lead/wire snapping.
+        const candidates = [
+          validTerminalTarget
+            ? {
+                ...validTerminalTarget,
+                kind: "terminal",
+                score:
+                  validTerminalTarget.distance -
+                  4 / zoom,
+              }
+            : null,
+          validLeadTarget
+            ? {
+                ...validLeadTarget,
+                kind: "lead",
+                score: validLeadTarget.distance,
+              }
+            : null,
+          validWireTarget
+            ? {
+                ...validWireTarget,
+                kind: "wire",
+                score: validWireTarget.distance,
+              }
+            : null,
+        ]
+          .filter(Boolean)
+          .sort((a, b) => a.score - b.score);
+
+        const target = candidates[0] ?? null;
+
+        if (target?.kind === "terminal") {
+          setWirePreview(target.position);
+          setWireSnapTarget({
+            kind: "terminal",
+            componentId: target.componentId,
+            port: target.port,
+            position: target.position,
+          });
+        } else if (target?.kind === "lead") {
+          setWirePreview(target.position);
+          setWireSnapTarget({
+            kind: "lead",
+            componentId: target.componentId,
+            port: target.port,
+            leadInset: target.leadInset,
+            position: target.position,
+          });
+        } else if (target?.kind === "wire") {
+          setWirePreview(target.position);
+          setWireSnapTarget({
+            kind: "wire",
+            wireId: target.wireId,
+            segmentIndex: target.segmentIndex,
+            position: target.position,
+          });
+        } else {
+          setWirePreview(point);
+          setWireSnapTarget(null);
+        }
       }
     }
 
@@ -2729,46 +4097,6 @@ function App() {
         rememberUndo(wireSegmentResize.undoSnapshot);
       }
 
-      setComponents((current) => {
-        const component = current.find(
-          (item) =>
-            item.id === wireSegmentResize.componentId
-        );
-        if (!component) {
-          return current;
-        }
-
-        const snappedLength = Math.max(
-          MIN_WIRE_COMPONENT_LENGTH,
-          snap(component.length ?? DEFAULT_WIRE_COMPONENT_LENGTH)
-        );
-        const snappedCandidate = {
-          ...component,
-          length: snappedLength,
-          x:
-            wireSegmentResize.fixedX +
-            wireSegmentResize.directionX * (snappedLength / 2),
-          y:
-            wireSegmentResize.fixedY +
-            wireSegmentResize.directionY * (snappedLength / 2),
-        };
-
-        const safeCandidate =
-          wireComponentHasForbiddenOverlap(
-            snappedCandidate,
-            current,
-            new Set([component.id])
-          )
-            ? component
-            : snappedCandidate;
-
-        return current.map((item) =>
-          item.id === component.id
-            ? safeCandidate
-            : item
-        );
-      });
-
       if (svgRef.current?.hasPointerCapture?.(event.pointerId)) {
         svgRef.current.releasePointerCapture(event.pointerId);
       }
@@ -2800,10 +4128,12 @@ function App() {
     if (drag.started) {
       rememberUndo(drag.undoSnapshot);
 
-      // Snap the group using one shared correction so all relative positions
-      // remain intact. Then allow the nearest selected terminal to magnetically
-      // snap to an unselected component.
-      setComponents((current) => {
+      // With object snapping enabled, quantise the group using one shared
+      // correction, then allow the nearest selected terminal to magnetically
+      // snap to an unselected component. With it disabled, the smooth live
+      // drag position is already authoritative.
+      if (snapObjects) {
+        setComponents((current) => {
         const groupIds = new Set(drag.ids);
         const anchor = current.find((component) => component.id === drag.id);
 
@@ -2878,8 +4208,9 @@ function App() {
           )
         );
 
-        return blocked ? current : working;
-      });
+          return blocked ? current : working;
+        });
+      }
     }
 
     if (svgRef.current?.hasPointerCapture?.(event.pointerId)) {
@@ -2937,6 +4268,18 @@ function App() {
         )
       );
 
+      if (wireSegmentResize.bodyAttachments.length) {
+        setWires(
+          wireSegmentResize.undoSnapshot.wires.map(
+            (wire) => ({
+              ...wire,
+              from: { ...wire.from },
+              to: { ...wire.to },
+            })
+          )
+        );
+      }
+
       wireSegmentResizeRef.current = null;
       return;
     }
@@ -2962,12 +4305,400 @@ function App() {
     dragRef.current = null;
   }
 
+  function buildWireToEndpoint(endpoint) {
+    if (!wireStart) return null;
+
+    const fromComponent = componentMap.get(
+      wireStart.componentId
+    );
+    const toComponent = componentMap.get(
+      endpoint.componentId
+    );
+    const fromPoint = fromComponent
+      ? getWireEndpointPosition(
+          wireStart,
+          fromComponent
+        )
+      : null;
+    const toPoint = toComponent
+      ? getWireEndpointPosition(
+          endpoint,
+          toComponent
+        )
+      : null;
+    const sharedDirection =
+      fromComponent && toComponent
+        ? getSharedPortDirection(
+            fromComponent,
+            wireStart.port,
+            toComponent,
+            endpoint.port
+          )
+        : null;
+    const terminalsAreAligned =
+      fromPoint && toPoint
+        ? fromPoint.x === toPoint.x ||
+          fromPoint.y === toPoint.y
+        : false;
+    const cShapeAllowed =
+      !wireStart.leadInset &&
+      !endpoint.leadInset &&
+      !["voltmeter", "junction"].includes(
+        fromComponent?.type
+      ) &&
+      !["voltmeter", "junction"].includes(
+        toComponent?.type
+      );
+    const useCShape = Boolean(
+      cShapeAllowed &&
+        sharedDirection &&
+        !terminalsAreAligned
+    );
+
+    return {
+      id: uid(),
+      from: { ...wireStart },
+      to: { ...endpoint },
+      route: useCShape ? "c-shape" : wireRoute,
+      currentArrow: "none",
+      ...(useCShape
+        ? {
+            cDirection: directionToKey(sharedDirection),
+            cOffset: DEFAULT_C_WIRE_OFFSET,
+          }
+        : {}),
+    };
+  }
+
+  function finishWireToEndpoint(endpoint) {
+    const wire = buildWireToEndpoint(endpoint);
+    if (!wire) return;
+
+    rememberUndo();
+    setWires((current) => [...current, wire]);
+    setSelected(
+      wire.route === "c-shape"
+        ? { kind: "wire", id: wire.id }
+        : null
+    );
+    setWireStart(null);
+    setWirePreview(null);
+    setWireSnapTarget(null);
+    setWireRoute("horizontal-first");
+  }
+
+  function finishWireAtExistingWire(target) {
+    if (!wireStart) return;
+
+    const targetWire = wires.find(
+      (wire) => wire.id === target.wireId
+    );
+    if (!targetWire) return;
+
+    const resolved = getStoredWireGeometry(
+      targetWire,
+      componentMap
+    );
+    if (!resolved) return;
+
+    const points = resolved.geometry.points;
+    const segmentIndex = Math.max(
+      0,
+      Math.min(
+        points.length - 2,
+        target.segmentIndex ?? 0
+      )
+    );
+    const junctionPoint =
+      target.position ??
+      snapPointAlongWireSegment(
+        closestPointOnSegment(
+          wirePreview ?? points[segmentIndex],
+          points[segmentIndex],
+          points[segmentIndex + 1]
+        ),
+        points[segmentIndex],
+        points[segmentIndex + 1]
+      );
+
+    const firstPoint = points[0];
+    const lastPoint = points[points.length - 1];
+
+    if (
+      Math.hypot(
+        junctionPoint.x - firstPoint.x,
+        junctionPoint.y - firstPoint.y
+      ) < 0.01
+    ) {
+      finishWireToEndpoint(targetWire.from);
+      return;
+    }
+
+    if (
+      Math.hypot(
+        junctionPoint.x - lastPoint.x,
+        junctionPoint.y - lastPoint.y
+      ) < 0.01
+    ) {
+      finishWireToEndpoint(targetWire.to);
+      return;
+    }
+
+    const junctionId = uid();
+    const junctionEndpoint = {
+      componentId: junctionId,
+      port: "node",
+    };
+    const junctionComponent = {
+      id: junctionId,
+      type: "junction",
+      x: junctionPoint.x,
+      y: junctionPoint.y,
+      rotation: 0,
+      label: "",
+      labelPosition: "center",
+      labelFontSize: 24,
+      labelBold: false,
+      labelItalic: false,
+    };
+
+    const beforePoints = [
+      ...points.slice(0, segmentIndex + 1),
+      junctionPoint,
+    ];
+    const afterPoints = [
+      junctionPoint,
+      ...points.slice(segmentIndex + 1),
+    ];
+
+    const firstPiece = makeFixedWirePiece(
+      targetWire.from,
+      junctionEndpoint,
+      beforePoints,
+      targetWire.currentArrow ?? "none"
+    );
+    const secondPiece = makeFixedWirePiece(
+      junctionEndpoint,
+      targetWire.to,
+      afterPoints,
+      targetWire.currentArrow ?? "none"
+    );
+    const branchWire = {
+      id: uid(),
+      from: { ...wireStart },
+      to: { ...junctionEndpoint },
+      route: wireRoute,
+      currentArrow: "none",
+    };
+
+    rememberUndo();
+    setComponents((current) => [
+      ...current,
+      junctionComponent,
+    ]);
+    setWires((current) => [
+      ...current.filter(
+        (wire) => wire.id !== targetWire.id
+      ),
+      firstPiece,
+      secondPiece,
+      branchWire,
+    ]);
+
+    setSelected(null);
+    setSelectedComponentIds([]);
+    setWireStart(null);
+    setWirePreview(null);
+    setWireSnapTarget(null);
+    setWireRoute("horizontal-first");
+  }
+
+  function finishWireAtVisibleSnapTarget(event) {
+    if (
+      mode !== "wire" ||
+      !wireStart ||
+      !wireSnapTarget
+    ) {
+      return false;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    // WYSIWYG rule: once the preview is visibly snapped, pointer-down commits
+    // to that exact rendered target. Do not run a second nearest-target search
+    // here, because that can make a nearby blue terminal steal the click.
+    if (wireSnapTarget.kind === "wire") {
+      finishWireAtExistingWire({
+        wireId: wireSnapTarget.wireId,
+        segmentIndex: wireSnapTarget.segmentIndex,
+        position: wireSnapTarget.position,
+      });
+      return true;
+    }
+
+    if (
+      wireSnapTarget.kind === "terminal" ||
+      wireSnapTarget.kind === "lead"
+    ) {
+      finishWireToEndpoint({
+        componentId: wireSnapTarget.componentId,
+        port: wireSnapTarget.port,
+        ...(wireSnapTarget.kind === "lead"
+          ? { leadInset: wireSnapTarget.leadInset }
+          : {}),
+      });
+      return true;
+    }
+
+    if (wireSnapTarget.kind === "black-junction") {
+      finishWireToEndpoint({
+        ...wireSnapTarget.endpoint,
+      });
+      return true;
+    }
+
+    return false;
+  }
+
+  function handleBlackJunctionClick(event, target) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (
+      mode === "wire" &&
+      wireStart &&
+      finishWireAtVisibleSnapTarget(event)
+    ) {
+      return;
+    }
+
+    if (mode === "wire" && wireStart) {
+      finishWireToEndpoint({
+        ...target.endpoint,
+      });
+      return;
+    }
+
+    if (target.kind === "junction") {
+      handlePortClick(
+        event,
+        target.endpoint.componentId,
+        target.endpoint.port
+      );
+      return;
+    }
+
+    const endpoint = target.endpoint;
+    handleComponentLeadClick(
+      event,
+      endpoint.componentId,
+      endpoint.port,
+      {
+        kind: "lead",
+        componentId: endpoint.componentId,
+        port: endpoint.port,
+        leadInset: endpoint.leadInset,
+        position: target.position,
+        distance: 0,
+      }
+    );
+  }
+
+  function handleComponentLeadClick(
+    event,
+    componentId,
+    port,
+    target = null
+  ) {
+    event.stopPropagation();
+    event.preventDefault();
+
+    if (mode !== "wire") {
+      return;
+    }
+
+    if (
+      wireStart &&
+      finishWireAtVisibleSnapTarget(event)
+    ) {
+      return;
+    }
+
+    const leadTarget =
+      target ??
+      findNearestComponentLeadPoint(
+        svgPoint(event),
+        components,
+        WIRE_TOOL_SNAP_RADIUS / zoom,
+        componentId,
+        port
+      );
+
+    if (!leadTarget) {
+      return;
+    }
+
+    const endpoint = {
+      componentId,
+      port,
+      leadInset: leadTarget.leadInset,
+    };
+
+    if (!wireStart) {
+      setSelected(null);
+      setSelectedComponentIds([]);
+      setWireStart(endpoint);
+      setWirePreview(leadTarget.position);
+      setWireSnapTarget(null);
+      setWireRoute("horizontal-first");
+      return;
+    }
+
+    const startComponent = componentMap.get(
+      wireStart.componentId
+    );
+    const startPosition = startComponent
+      ? getWireEndpointPosition(
+          wireStart,
+          startComponent
+        )
+      : null;
+
+    if (
+      startPosition &&
+      Math.hypot(
+        leadTarget.position.x - startPosition.x,
+        leadTarget.position.y - startPosition.y
+      ) < 0.01
+    ) {
+      setWireStart(null);
+      setWirePreview(null);
+      setWireSnapTarget(null);
+      setWireRoute("horizontal-first");
+      return;
+    }
+
+    finishWireToEndpoint(endpoint);
+  }
+
   function handlePortClick(event, componentId, port) {
     event.stopPropagation();
 
     if (mode !== "wire") {
+      if (componentMap.get(componentId)?.type === "junction") {
+        return;
+      }
+
       setSelected({ kind: "component", id: componentId });
       setSelectedComponentIds([componentId]);
+      return;
+    }
+
+    if (
+      wireStart &&
+      finishWireAtVisibleSnapTarget(event)
+    ) {
       return;
     }
 
@@ -2997,50 +4728,7 @@ function App() {
       return;
     }
 
-    const fromComponent = componentMap.get(wireStart.componentId);
-    const toComponent = componentMap.get(endpoint.componentId);
-    const fromPoint = fromComponent
-      ? getPortPosition(fromComponent, wireStart.port)
-      : null;
-    const toPoint = toComponent
-      ? getPortPosition(toComponent, endpoint.port)
-      : null;
-    const sharedDirection =
-      fromComponent && toComponent
-        ? getSharedPortDirection(
-            fromComponent,
-            wireStart.port,
-            toComponent,
-            endpoint.port
-          )
-        : null;
-    const terminalsAreAligned =
-      fromPoint && toPoint
-        ? fromPoint.x === toPoint.x || fromPoint.y === toPoint.y
-        : false;
-    const useCShape = Boolean(sharedDirection && !terminalsAreAligned);
-
-    const wire = {
-      id: uid(),
-      from: wireStart,
-      to: endpoint,
-      route: useCShape ? "c-shape" : wireRoute,
-      currentArrow: "none",
-      ...(useCShape
-        ? {
-            cDirection: directionToKey(sharedDirection),
-            cOffset: DEFAULT_C_WIRE_OFFSET,
-          }
-        : {}),
-    };
-
-    rememberUndo();
-    setWires((current) => [...current, wire]);
-    setSelected(useCShape ? { kind: "wire", id: wire.id } : null);
-    setWireStart(null);
-    setWirePreview(null);
-    setWireSnapTarget(null);
-    setWireRoute("horizontal-first");
+    finishWireToEndpoint(endpoint);
   }
 
   function setSelectedDrawnWireCurrentArrow(currentArrow) {
@@ -3067,7 +4755,13 @@ function App() {
 
     if (selected?.kind === "wire") {
       const wire = wires.find((item) => item.id === selected.id);
-      if (!wire || wire.route === "c-shape") return;
+      if (
+        !wire ||
+        wire.route === "c-shape" ||
+        wire.route === "fixed"
+      ) {
+        return;
+      }
 
       rememberUndo();
       setWires((current) =>
@@ -3086,12 +4780,37 @@ function App() {
   function selectWire(event, id) {
     event.stopPropagation();
 
-    // Clicking the body of an existing wire is clear selection intent.
-    // If Wire mode is active, leave it and select the wire instead.
+    if (
+      mode === "wire" &&
+      wireStart &&
+      finishWireAtVisibleSnapTarget(event)
+    ) {
+      return;
+    }
+
+    if (mode === "wire" && wireStart) {
+      const point = svgPoint(event);
+      const target = findNearestWirePoint(
+        point,
+        wires,
+        componentMap,
+        WIRE_TOOL_SNAP_RADIUS / zoom,
+        id
+      );
+
+      if (target) {
+        finishWireAtExistingWire(target);
+      }
+      return;
+    }
+
+    // Clicking an existing wire without an in-progress branch is clear
+    // selection intent, so leave Wire mode and select the wire.
     if (mode === "wire") {
       setMode("select");
       setWireStart(null);
       setWirePreview(null);
+      setWireSnapTarget(null);
       setWireRoute("horizontal-first");
     }
 
@@ -3388,7 +5107,7 @@ function App() {
     // With neither end connected, or with two genuinely independent
     // connections, use the original centre-based rotation behavior.
     rotationPivotRef.current = null;
-    const rotated = alignComponentToGrid({
+    const rotatedCandidate = {
       ...component,
       rotation: (component.rotation + 90) % 360,
       labelPosition: ![
@@ -3400,7 +5119,10 @@ function App() {
             component.labelPosition ?? "below"
           )
         : component.labelPosition,
-    });
+    };
+    const rotated = snapObjects
+      ? alignComponentToGrid(rotatedCandidate)
+      : rotatedCandidate;
 
     setComponents((current) =>
       current.map((item) =>
@@ -3413,12 +5135,15 @@ function App() {
     rotationPivotRef.current = null;
     if (!selectedComponent) return;
 
-    const copy = alignComponentToGrid({
+    const copyCandidate = {
       ...selectedComponent,
       id: uid(),
       x: Math.min(WIDTH - 60, selectedComponent.x + 30),
       y: Math.min(HEIGHT - 60, selectedComponent.y + 30),
-    });
+    };
+    const copy = snapObjects
+      ? alignComponentToGrid(copyCandidate)
+      : copyCandidate;
 
     rememberUndo();
     setComponents((current) => [...current, copy]);
@@ -3490,6 +5215,37 @@ function App() {
               ...component,
               verticalFlip: !component.verticalFlip,
             }
+          : component
+      )
+    );
+  }
+
+  function adjustSelectedPotentiometerWiperOffset(direction) {
+    if (
+      !selectedComponent ||
+      selectedComponent.type !== "potentiometer"
+    ) {
+      return;
+    }
+
+    const currentOffset =
+      getPotentiometerWiperOffset(selectedComponent);
+    const nextOffset = Math.max(
+      POTENTIOMETER_WIPER_OFFSET_MIN,
+      Math.min(
+        POTENTIOMETER_WIPER_OFFSET_MAX,
+        currentOffset +
+          direction * POTENTIOMETER_WIPER_OFFSET_STEP
+      )
+    );
+
+    if (nextOffset === currentOffset) return;
+
+    rememberUndo();
+    setComponents((current) =>
+      current.map((component) =>
+        component.id === selectedComponent.id
+          ? { ...component, wiperOffset: nextOffset }
           : component
       )
     );
@@ -4352,7 +6108,11 @@ function App() {
           return;
         }
 
-        if (selectedWire && selectedWire.route !== "c-shape") {
+        if (
+          selectedWire &&
+          selectedWire.route !== "c-shape" &&
+          selectedWire.route !== "fixed"
+        ) {
           event.preventDefault();
           flipWireCorner();
           return;
@@ -4381,9 +6141,9 @@ function App() {
 
   const liveWireStart =
     wireStart && componentMap.get(wireStart.componentId)
-      ? getPortPosition(
-          componentMap.get(wireStart.componentId),
-          wireStart.port
+      ? getWireEndpointPosition(
+          wireStart,
+          componentMap.get(wireStart.componentId)
         )
       : null;
 
@@ -4424,6 +6184,37 @@ function App() {
             >
               {showGrid ? "Hide grid" : "Show grid"}
             </button>
+            <label
+              title="Snap moved, resized, duplicated and newly added objects to the grid and nearby component terminals. Wire-tool connection snapping is unchanged."
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "4px 6px",
+                whiteSpace: "nowrap",
+                fontWeight: 400,
+                fontSize: "13px",
+                cursor: "pointer",
+                userSelect: "none",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={snapObjects}
+                onChange={(event) =>
+                  setSnapObjects(event.target.checked)
+                }
+                aria-label="Snap objects"
+                style={{
+                  margin: 0,
+                  width: "15px",
+                  height: "15px",
+                  cursor: "pointer",
+                }}
+              />
+              Snap objects
+            </label>
+
             <button
               onClick={() =>
                 setShowBlueConnectors((value) => !value)
@@ -4675,13 +6466,15 @@ function App() {
                 minWidth: 0,
                 textAlign: "center",
                 justifySelf: "stretch",
+                fontSize: "16px",
+                fontWeight: mode === "wire" ? 600 : 400,
               }}
             >
               {mode === "wire"
                 ? wireStart
-                  ? "Choose a second blue terminal."
-                  : "Click a blue terminal to start a wire. Matching-facing terminals snap to a C shape."
-                : "Drag to move. Shift-click or Shift-drag the grid to select multiple components."}
+                  ? "Choose another terminal, component lead/Wire, or an existing wire."
+                  : "Start at a blue terminal, component lead or Wire. Finish on a terminal, lead/Wire, or existing wire."
+                : "Shift-click or Shift-drag the grid to select multiple components. R to rotate."}
             </div>
 
             <div
@@ -4873,6 +6666,14 @@ function App() {
               onPointerCancel={cancelPointerAction}
               onPointerDown={(event) => {
                 if (event.target === event.currentTarget) {
+                  if (
+                    mode === "wire" &&
+                    wireStart &&
+                    finishWireAtVisibleSnapTarget(event)
+                  ) {
+                    return;
+                  }
+
                   if (!startMarqueeSelection(event)) {
                     clearSelectionOrWire();
                   }
@@ -4927,35 +6728,18 @@ function App() {
 
               <g className="wire-layer">
                 {wires.map((wire) => {
-                  const fromComponent = componentMap.get(
-                    wire.from.componentId
+                  const resolved = getStoredWireGeometry(
+                    wire,
+                    componentMap
                   );
-                  const toComponent = componentMap.get(wire.to.componentId);
 
-                  if (!fromComponent || !toComponent) return null;
+                  if (!resolved) return null;
 
-                  const from = getPortPosition(
+                  const {
                     fromComponent,
-                    wire.from.port
-                  );
-                  const to = getPortPosition(toComponent, wire.to.port);
-                  const sharedDirection = getSharedPortDirection(
-                    fromComponent,
-                    wire.from.port,
                     toComponent,
-                    wire.to.port
-                  );
-                  const liveCDirection =
-                    wire.route === "c-shape" && sharedDirection
-                      ? directionToKey(sharedDirection)
-                      : wire.cDirection;
-                  const geometry = getWireGeometry(
-                    from,
-                    to,
-                    wire.route,
-                    liveCDirection,
-                    wire.cOffset
-                  );
+                    geometry,
+                  } = resolved;
                   const path = geometry.path;
                   const currentArrows = getDrawnWireCurrentArrows(
                     wire,
@@ -4965,6 +6749,11 @@ function App() {
                   );
                   const isSelected =
                     selected?.kind === "wire" && selected.id === wire.id;
+                  const wireSelectionOutline = isSelected
+                    ? getPolylineCorridorOutline(
+                        geometry.points
+                      )
+                    : null;
 
                   return (
                     <g key={wire.id}>
@@ -4976,6 +6765,8 @@ function App() {
                         strokeLinecap="butt"
                         strokeLinejoin="miter"
                       />
+
+
                       {currentArrows.map((arrow, index) => (
                         <ArrowHead
                           key={`${wire.id}-current-${index}`}
@@ -4986,16 +6777,79 @@ function App() {
                         />
                       ))}
 
+                      {/* The fine rounded purple boundary mirrors the
+                          component selection style while still tracing the
+                          Wire-tool wire's actual selectable corridor. */}
+                      {isSelected && (
+                        <>
+                          <path
+                            data-editor-only="true"
+                            d={path}
+                            fill="none"
+                            stroke="#7c3aed"
+                            strokeWidth="11"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            opacity="0.20"
+                            vectorEffect="non-scaling-stroke"
+                            pointerEvents="none"
+                          />
+                          <path
+                            data-editor-only="true"
+                            d={path}
+                            fill="none"
+                            stroke="#7c3aed"
+                            strokeWidth={WIRE_TOOL_HIT_WIDTH}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            opacity="0.045"
+                            pointerEvents="none"
+                          />
+                          {wireSelectionOutline?.outlinePath && (
+                            <path
+                              data-editor-only="true"
+                              d={wireSelectionOutline.outlinePath}
+                              fill="none"
+                              stroke="#7c3aed"
+                              strokeWidth="1.4"
+                              strokeDasharray="2 3.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              vectorEffect="non-scaling-stroke"
+                              pointerEvents="none"
+                            />
+                          )}
+                          {[geometry.points[0], geometry.points.at(-1)].map(
+                            (endpoint, endpointIndex) => (
+                              <circle
+                                key={`${wire.id}-selected-end-${endpointIndex}`}
+                                data-editor-only="true"
+                                cx={endpoint.x}
+                                cy={endpoint.y}
+                                r="5.5"
+                                fill="white"
+                                stroke="#7c3aed"
+                                strokeWidth="2"
+                                vectorEffect="non-scaling-stroke"
+                                pointerEvents="none"
+                              />
+                            )
+                          )}
+                        </>
+                      )}
+
                       <path
                         data-editor-only="true"
                         d={path}
                         fill="none"
-                        stroke={isSelected ? "#2563eb" : "transparent"}
-                        strokeWidth={isSelected ? "12" : "28"}
-                        opacity={isSelected ? "0.28" : "1"}
-                        vectorEffect="non-scaling-stroke"
+                        stroke="#7c3aed"
+                        strokeWidth={WIRE_TOOL_HIT_WIDTH}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        opacity="0.001"
                         pointerEvents="stroke"
                         className="wire-hit"
+                        style={{ cursor: "pointer" }}
                         onPointerDown={(event) =>
                           selectWire(event, wire.id)
                         }
@@ -5031,7 +6885,7 @@ function App() {
                             height="14"
                             rx="3"
                             fill="white"
-                            stroke="#2563eb"
+                            stroke="#7c3aed"
                             strokeWidth="2"
                             vectorEffect="non-scaling-stroke"
                             pointerEvents="none"
@@ -5057,7 +6911,7 @@ function App() {
                                 ? geometry.handle.y
                                 : geometry.handle.y + 3
                             }
-                            stroke="#2563eb"
+                            stroke="#7c3aed"
                             strokeWidth="2"
                             strokeLinecap="round"
                             vectorEffect="non-scaling-stroke"
@@ -5068,6 +6922,34 @@ function App() {
                     </g>
                   );
                 })}
+
+                {/* Junction dots are editor-only cues: they appear while
+                    a target is visibly snapped, then disappear after commit. */}
+                {[
+                  "wire",
+                  "lead",
+                  "black-junction",
+                ].includes(wireSnapTarget?.kind) &&
+                  wireSnapTarget?.position && (
+                    <g data-editor-only="true" pointerEvents="none">
+                      <circle
+                        cx={wireSnapTarget.position.x}
+                        cy={wireSnapTarget.position.y}
+                        r="7"
+                        fill="white"
+                        stroke="#2563eb"
+                        strokeWidth="2"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                      <circle
+                        cx={wireSnapTarget.position.x}
+                        cy={wireSnapTarget.position.y}
+                        r="2.5"
+                        fill="currentColor"
+                        stroke="none"
+                      />
+                    </g>
+                  )}
 
                 {liveWireStart && wirePreview && (
                   <path
@@ -5088,6 +6970,34 @@ function App() {
                 {components.map((component) => {
                   const isSelected =
                     selectedComponentIds.includes(component.id);
+
+                  if (component.type === "junction") {
+                    return (
+                      <g
+                        key={component.id}
+                        transform={`translate(${component.x} ${component.y})`}
+                      >
+                        {mode === "wire" && (
+                          <circle
+                            data-editor-only="true"
+                            cx="0"
+                            cy="0"
+                            r={WIRE_TOOL_SNAP_RADIUS / zoom}
+                            fill="transparent"
+                            stroke="none"
+                            pointerEvents="all"
+                            onPointerDown={(event) =>
+                              handlePortClick(
+                                event,
+                                component.id,
+                                "node"
+                              )
+                            }
+                          />
+                        )}
+                      </g>
+                    );
+                  }
                   const leftPortActive =
                     wireStart?.componentId === component.id &&
                     wireStart?.port === "left";
@@ -5097,11 +7007,13 @@ function App() {
                   const leftPortSnapTarget =
                     mode === "wire" &&
                     wireStart &&
+                    wireSnapTarget?.kind === "terminal" &&
                     wireSnapTarget?.componentId === component.id &&
                     wireSnapTarget?.port === "left";
                   const rightPortSnapTarget =
                     mode === "wire" &&
                     wireStart &&
+                    wireSnapTarget?.kind === "terminal" &&
                     wireSnapTarget?.componentId === component.id &&
                     wireSnapTarget?.port === "right";
                   const tapPortActive =
@@ -5110,6 +7022,7 @@ function App() {
                   const tapPortSnapTarget =
                     mode === "wire" &&
                     wireStart &&
+                    wireSnapTarget?.kind === "terminal" &&
                     wireSnapTarget?.componentId === component.id &&
                     wireSnapTarget?.port === "tap";
                   const topPortActive =
@@ -5124,16 +7037,19 @@ function App() {
                   const topPortSnapTarget =
                     mode === "wire" &&
                     wireStart &&
+                    wireSnapTarget?.kind === "terminal" &&
                     wireSnapTarget?.componentId === component.id &&
                     wireSnapTarget?.port === "top";
                   const bottomPortSnapTarget =
                     mode === "wire" &&
                     wireStart &&
+                    wireSnapTarget?.kind === "terminal" &&
                     wireSnapTarget?.componentId === component.id &&
                     wireSnapTarget?.port === "bottom";
                   const wiperPortSnapTarget =
                     mode === "wire" &&
                     wireStart &&
+                    wireSnapTarget?.kind === "terminal" &&
                     wireSnapTarget?.componentId === component.id &&
                     wireSnapTarget?.port === "wiper";
                   const portDistance = getComponentPortDistance(component);
@@ -5141,32 +7057,134 @@ function App() {
                   const currentArrowOffset = isWireSegment
                     ? getWireCurrentArrowOffset(component, components)
                     : 0;
-                  const isVariableWidthComponent =
-                    isWireSegment || component.type === "cell";
-                  const bodyHalfWidth = isVariableWidthComponent
-                    ? portDistance
-                    : component.type === "label"
+                  const bodyHalfWidth =
+                    component.type === "label"
                       ? 80
-                      : 50;
-                  const hitHalfWidth = isVariableWidthComponent
-                    ? bodyHalfWidth + 12
-                    : component.type === "label"
-                      ? 90
-                      : 58;
+                      : portDistance;
+                  const visualHalfHeight =
+                    component.type === "label"
+                      ? 16
+                      : Math.max(
+                          getComponentLabelExtent(
+                            component,
+                            "above"
+                          ),
+                          getComponentLabelExtent(
+                            component,
+                            "below"
+                          )
+                        );
+                  const hitHalfWidth =
+                    component.type === "label"
+                      ? 84
+                      : bodyHalfWidth + 8;
                   const hitHalfHeight = isWireSegment
-                    ? 24
+                    ? GRID
                     : component.type === "label"
-                      ? 28
-                      : component.type === "potential-divider"
-                        ? 56
-                        : component.type === "potentiometer"
-                          ? 58
-                          : 42;
+                      ? 22
+                      : Math.max(
+                          18,
+                          visualHalfHeight + 7
+                        );
                   const selectionHalfHeight = isWireSegment
-                    ? 24
+                    ? GRID
                     : component.type === "label"
-                      ? 28
-                      : 61;
+                      ? 22
+                      : visualHalfHeight + 5;
+
+                  // A few symbols are strongly asymmetric. Their old centred
+                  // rectangles created large invisible areas on the empty side
+                  // of the drawing. Keep custom local-space bounds close to
+                  // what is actually visible.
+                  const specialBounds = (() => {
+                    switch (component.type) {
+                      case "ldr":
+                        return {
+                          hit: {
+                            left: 55,
+                            right: 55,
+                            top: 58,
+                            bottom: 33,
+                          },
+                          selection: {
+                            left: 54,
+                            right: 54,
+                            top: 56,
+                            bottom: 31,
+                          },
+                        };
+                      case "led":
+                        return {
+                          hit: {
+                            left: 55,
+                            right: 55,
+                            top: 61,
+                            bottom: 31,
+                          },
+                          selection: {
+                            left: 54,
+                            right: 54,
+                            top: 59,
+                            bottom: 29,
+                          },
+                        };
+                      case "potential-divider":
+                        return {
+                          hit: {
+                            left: 55,
+                            right: 55,
+                            top: 18,
+                            bottom: 42,
+                          },
+                          selection: {
+                            left: 54,
+                            right: 54,
+                            top: 16,
+                            bottom: 40,
+                          },
+                        };
+                      case "potentiometer": {
+                        const wiperOffset =
+                          getPotentiometerWiperOffset(component);
+                        return {
+                          hit: {
+                            left: 23,
+                            right: wiperOffset + 6,
+                            top: 55,
+                            bottom: 55,
+                          },
+                          selection: {
+                            left: 21,
+                            right: wiperOffset + 4,
+                            top: 53,
+                            bottom: 53,
+                          },
+                        };
+                      }
+                      default:
+                        return null;
+                    }
+                  })();
+
+                  const hitBounds = specialBounds?.hit ?? {
+                    left: hitHalfWidth,
+                    right: hitHalfWidth,
+                    top: hitHalfHeight,
+                    bottom: hitHalfHeight,
+                  };
+                  const selectionBounds =
+                    specialBounds?.selection ?? {
+                      left:
+                        component.type === "label"
+                          ? 84
+                          : bodyHalfWidth + 6,
+                      right:
+                        component.type === "label"
+                          ? 84
+                          : bodyHalfWidth + 6,
+                      top: selectionHalfHeight,
+                      bottom: selectionHalfHeight,
+                    };
 
                   return (
                     <g
@@ -5180,15 +7198,19 @@ function App() {
                           startComponentDrag(event, component)
                         }
                       >
-                        {/* A generous invisible hit area makes thin circuit
-                            symbols much easier to grab without changing how
-                            the exported diagram looks. */}
+                        {/* Keep a modest invisible grab margin around the
+                            actual symbol without letting horizontal parts
+                            capture clicks far above or below themselves. */}
                         <rect
                           data-editor-only="true"
-                          x={-hitHalfWidth}
-                          y={-hitHalfHeight}
-                          width={hitHalfWidth * 2}
-                          height={hitHalfHeight * 2}
+                          x={-hitBounds.left}
+                          y={-hitBounds.top}
+                          width={
+                            hitBounds.left + hitBounds.right
+                          }
+                          height={
+                            hitBounds.top + hitBounds.bottom
+                          }
                           rx="10"
                           fill="transparent"
                           pointerEvents="all"
@@ -5201,6 +7223,7 @@ function App() {
                             cellCount={component.cellCount}
                             showPolarity={component.showPolarity ?? true}
                             verticalFlip={component.verticalFlip ?? false}
+                            wiperOffset={getPotentiometerWiperOffset(component)}
                             currentArrow={component.currentArrow ?? "none"}
                             currentArrowOffset={currentArrowOffset}
                             componentRotation={component.rotation ?? 0}
@@ -5210,18 +7233,16 @@ function App() {
 
                         <rect
                           data-editor-only="true"
-                          x={
-                            component.type === "label"
-                              ? -90
-                              : -(bodyHalfWidth + 11)
-                          }
-                          y={-selectionHalfHeight}
+                          x={-selectionBounds.left}
+                          y={-selectionBounds.top}
                           width={
-                            component.type === "label"
-                              ? 180
-                              : (bodyHalfWidth + 11) * 2
+                            selectionBounds.left +
+                            selectionBounds.right
                           }
-                          height={selectionHalfHeight * 2}
+                          height={
+                            selectionBounds.top +
+                            selectionBounds.bottom
+                          }
                           rx="8"
                           className="selection-box"
                           opacity={isSelected ? 1 : 0}
@@ -5434,7 +7455,9 @@ function App() {
                                 />
                                 <circle
                                   data-editor-only="true"
-                                  cx={PORT_DISTANCE}
+                                  cx={getPotentiometerWiperOffset(
+                                    component
+                                  )}
                                   cy={component.verticalFlip ? -40 : 40}
                                   r={WIRE_TOOL_SNAP_RADIUS / zoom}
                                   fill="transparent"
@@ -5509,7 +7532,9 @@ function App() {
                             />
                             <circle
                               data-editor-only="true"
-                              cx={PORT_DISTANCE}
+                              cx={getPotentiometerWiperOffset(
+                                component
+                              )}
                               cy={component.verticalFlip ? -40 : 40}
                               r={
                                 wiperPortSnapTarget
@@ -5672,6 +7697,27 @@ function App() {
                       );
                     })}
               </g>
+
+              {mode === "wire" &&
+                blackJunctionTargets.map((target, index) => (
+                  <circle
+                    key={`black-junction-hit-${index}`}
+                    data-editor-only="true"
+                    cx={target.position.x}
+                    cy={target.position.y}
+                    r={BLACK_JUNCTION_SNAP_RADIUS / zoom}
+                    fill="transparent"
+                    stroke="none"
+                    pointerEvents="all"
+                    style={{ cursor: "crosshair" }}
+                    onPointerDown={(event) =>
+                      handleBlackJunctionClick(
+                        event,
+                        target
+                      )
+                    }
+                  />
+                ))}
 
               {marqueeSelection?.started && (
                 <rect
@@ -5888,32 +7934,143 @@ function App() {
                     borderRadius: "9px",
                     background: "#f8fafc",
                     display: "grid",
-                    gridTemplateColumns: "1fr auto",
-                    alignItems: "center",
-                    gap: "10px",
+                    gap: "7px",
                   }}
                 >
-                  <span
+                  <div
                     style={{
-                      fontSize: "12px",
-                      fontWeight: 650,
-                      color: "#526275",
+                      minHeight: "28px",
+                      display: "grid",
+                      gridTemplateColumns: "1fr auto",
+                      alignItems: "center",
+                      gap: "10px",
                     }}
                   >
-                    Wiper lead
-                  </span>
-                  <button
-                    type="button"
-                    onClick={flipSelectedPotentiometerVertically}
-                    title="Flip the wiper lead"
-                    aria-label="Flip wiper lead"
+                    <span
+                      style={{
+                        fontSize: "12px",
+                        fontWeight: 650,
+                        color: "#526275",
+                      }}
+                    >
+                      Wiper lead
+                    </span>
+                    <button
+                      type="button"
+                      onClick={flipSelectedPotentiometerVertically}
+                      title="Flip the wiper lead"
+                      aria-label="Flip wiper lead"
+                      style={{
+                        padding: "6px 10px",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Flip
+                    </button>
+                  </div>
+
+                  <div
                     style={{
-                      padding: "6px 10px",
-                      whiteSpace: "nowrap",
+                      minHeight: "28px",
+                      display: "grid",
+                      gridTemplateColumns: "1fr auto",
+                      alignItems: "center",
+                      gap: "10px",
                     }}
                   >
-                    Flip
-                  </button>
+                    <span
+                      title="Distance from the resistor body to the wiper corner"
+                      style={{
+                        fontSize: "12px",
+                        fontWeight: 650,
+                        color: "#526275",
+                      }}
+                    >
+                      Wiper offset
+                    </span>
+
+                    <div
+                      aria-label="Wiper offset"
+                      title="Distance from the resistor body to the wiper corner"
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "28px 34px 28px",
+                        alignItems: "center",
+                        border: "1px solid #d5deea",
+                        borderRadius: "7px",
+                        overflow: "hidden",
+                        background: "white",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          adjustSelectedPotentiometerWiperOffset(-1)
+                        }
+                        disabled={
+                          getPotentiometerWiperOffset(
+                            selectedComponent
+                          ) <= POTENTIOMETER_WIPER_OFFSET_MIN
+                        }
+                        title="Move the wiper corner closer"
+                        aria-label="Decrease wiper offset"
+                        style={{
+                          minWidth: 0,
+                          height: "26px",
+                          padding: 0,
+                          border: 0,
+                          borderRight: "1px solid #e2e8f0",
+                          borderRadius: 0,
+                          fontSize: "17px",
+                          lineHeight: 1,
+                          background: "transparent",
+                        }}
+                      >
+                        −
+                      </button>
+
+                      <div
+                        aria-live="polite"
+                        style={{
+                          textAlign: "center",
+                          fontSize: "13px",
+                          fontWeight: 700,
+                          fontVariantNumeric: "tabular-nums",
+                        }}
+                      >
+                        {getPotentiometerWiperOffset(
+                          selectedComponent
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          adjustSelectedPotentiometerWiperOffset(1)
+                        }
+                        disabled={
+                          getPotentiometerWiperOffset(
+                            selectedComponent
+                          ) >= POTENTIOMETER_WIPER_OFFSET_MAX
+                        }
+                        title="Move the wiper corner farther away"
+                        aria-label="Increase wiper offset"
+                        style={{
+                          minWidth: 0,
+                          height: "26px",
+                          padding: 0,
+                          border: 0,
+                          borderLeft: "1px solid #e2e8f0",
+                          borderRadius: 0,
+                          fontSize: "17px",
+                          lineHeight: 1,
+                          background: "transparent",
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -6433,15 +8590,63 @@ function App() {
             </>
           ) : selected?.kind === "wire" ? (
             <>
-              <p className="selected-name">Wire selected</p>
+              <div
+                style={{
+                  marginBottom: "12px",
+                  padding: "9px 10px",
+                  border: "1px solid #c4b5fd",
+                  borderLeft: "4px solid #7c3aed",
+                  borderRadius: "9px",
+                  background: "#f5f3ff",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "7px",
+                    marginBottom: "3px",
+                  }}
+                >
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: "8px",
+                      height: "8px",
+                      borderRadius: "999px",
+                      background: "#7c3aed",
+                      flex: "0 0 auto",
+                    }}
+                  />
+                  <p
+                    className="selected-name"
+                    style={{
+                      margin: 0,
+                      color: "#5b21b6",
+                    }}
+                  >
+                    Wire-tool wire
+                  </p>
+                </div>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "12px",
+                    lineHeight: 1.35,
+                    color: "#6d5a8e",
+                  }}
+                >
+                  Drawn with the Wire tool
+                </p>
+              </div>
 
               <div
                 style={{
                   marginBottom: "12px",
                   padding: "7px 9px",
-                  border: "1px solid #dfe6ef",
+                  border: "1px solid #ddd6fe",
                   borderRadius: "9px",
-                  background: "#f8fafc",
+                  background: "#faf8ff",
                   display: "grid",
                   gridTemplateColumns: "1fr auto",
                   alignItems: "center",
@@ -6452,7 +8657,7 @@ function App() {
                   style={{
                     fontSize: "12px",
                     fontWeight: 650,
-                    color: "#526275",
+                    color: "#6d28d9",
                   }}
                 >
                   Current arrows
@@ -6463,7 +8668,7 @@ function App() {
                   style={{
                     display: "grid",
                     gridTemplateColumns: "repeat(3, 34px)",
-                    border: "1px solid #d5deea",
+                    border: "1px solid #c4b5fd",
                     borderRadius: "7px",
                     overflow: "hidden",
                     background: "white",
@@ -6510,8 +8715,18 @@ function App() {
                         borderLeft:
                           index === 0
                             ? 0
-                            : "1px solid #e2e8f0",
+                            : "1px solid #ede9fe",
                         borderRadius: 0,
+                        color:
+                          (selectedWire?.currentArrow ?? "none") ===
+                          option.value
+                            ? "#5b21b6"
+                            : "#5f6670",
+                        background:
+                          (selectedWire?.currentArrow ?? "none") ===
+                          option.value
+                            ? "#ede9fe"
+                            : "white",
                         fontSize:
                           option.value === "none"
                             ? "16px"
@@ -6530,9 +8745,9 @@ function App() {
                   style={{
                     marginBottom: "12px",
                     padding: "7px 9px",
-                    border: "1px solid #dfe6ef",
+                    border: "1px solid #ddd6fe",
                     borderRadius: "9px",
-                    background: "#f8fafc",
+                    background: "#faf8ff",
                     display: "grid",
                     gridTemplateColumns: "1fr auto",
                     alignItems: "center",
@@ -6543,7 +8758,7 @@ function App() {
                     style={{
                       fontSize: "12px",
                       fontWeight: 650,
-                      color: "#526275",
+                      color: "#6d28d9",
                     }}
                   >
                     Corner route
@@ -6556,6 +8771,9 @@ function App() {
                     style={{
                       minWidth: "72px",
                       padding: "6px 10px",
+                      borderColor: "#c4b5fd",
+                      color: "#5b21b6",
+                      background: "#f5f3ff",
                     }}
                   >
                     Flip
@@ -6565,7 +8783,7 @@ function App() {
 
               <p className="hint">
                 {selectedWire?.route === "c-shape"
-                  ? "Drag the blue handle on the middle segment to move the C-shaped wire in or out."
+                  ? "Drag the purple handle on the middle segment to move the C-shaped wire in or out."
                   : selectedWireCanFlip
                     ? "Use Flip above or press Space to switch to the other corner. Press Delete to remove the wire."
                     : "Press Delete to remove the wire."}
