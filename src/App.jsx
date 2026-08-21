@@ -32,7 +32,7 @@ const CELL_COUNT_MAX = 8;
 const CELL_GROUP_SPACING = 20;
 const CELL_PLATE_OFFSET = 5;
 const FANCY_TEXT_FONT_FAMILY = 'Georgia, "Times New Roman", serif';
-const GEORGIA_ADJUSTED_DIGIT_PATTERN = /([12]+|[3459]+|7+)/;
+const GEORGIA_ADJUSTED_DIGIT_PATTERN = /([012]+|[3459]+|7+)/;
 
 const TRANSFORMER_TERMINAL_Y = 27;
 const TRANSFORMER_CORE_HALF_HEIGHT = 34;
@@ -1301,7 +1301,7 @@ function renderAlignedFancyText(value, alignGeorgiaNumerals) {
     .filter(Boolean)
     .map((segment, index) => {
       const isSeven = /^7+$/.test(segment);
-      const isTallDigit = /^[12]+$/.test(segment);
+      const isTallDigit = /^[012]+$/.test(segment);
       const isDescendingDigit =
         /^[3459]+$/.test(segment);
 
@@ -1311,7 +1311,6 @@ function renderAlignedFancyText(value, alignGeorgiaNumerals) {
           baselineShift={
             isSeven || isDescendingDigit ? "18%" : undefined
           }
-          fontSize={isTallDigit ? "110%" : undefined}
           style={
             isSeven
               ? {
@@ -1323,7 +1322,13 @@ function renderAlignedFancyText(value, alignGeorgiaNumerals) {
                   strokeLinejoin: "round",
                   paintOrder: "stroke fill",
                 }
-              : undefined
+              : isTallDigit
+                ? {
+                    transform: "scaleY(1.1)",
+                    transformBox: "fill-box",
+                    transformOrigin: "center bottom",
+                  }
+                : undefined
           }
         >
           {segment}
