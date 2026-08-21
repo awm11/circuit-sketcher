@@ -7,8 +7,8 @@ const HEIGHT = 840;
 const PORT_DISTANCE = 50;
 const METER_RADIUS = 18;
 const METER_FONT_SIZE = 18;
-const VOLTMETER_PORT_DISTANCE = METER_RADIUS + 8;
-const AMMETER_PORT_DISTANCE = METER_RADIUS + 14;
+const VOLTMETER_PORT_DISTANCE = GRID * 3;
+const AMMETER_PORT_DISTANCE = GRID * 3;
 const POTENTIAL_DIVIDER_TAP_LENGTH = 35;
 const POTENTIOMETER_WIPER_OFFSET_DEFAULT = 30;
 const POTENTIOMETER_WIPER_OFFSET_MIN = 25;
@@ -1064,9 +1064,9 @@ function CircuitSymbol({
           <line x1="16" y1="0" x2="50" y2="0" />
           <circle cx="0" cy="0" r="27" fill="none" />
           <rect x="-16" y="-7" width="32" height="14" fill="none" />
-          <line x1="-46" y1="-42" x2="-27.5" y2="-23.5" strokeLinecap="butt" />
+          <line x1="-43" y1="-39" x2="-27.5" y2="-23.5" strokeLinecap="butt" />
           <ArrowHead x={-24} y={-20} angle={45} />
-          <line x1="-33" y1="-50" x2="-14.5" y2="-31.5" strokeLinecap="butt" />
+          <line x1="-30" y1="-47" x2="-14.5" y2="-31.5" strokeLinecap="butt" />
           <ArrowHead x={-11} y={-28} angle={45} />
         </>
       );
@@ -1078,10 +1078,10 @@ function CircuitSymbol({
           <line x1="-50" y1="0" x2="50" y2="0" />
           <circle cx="0" cy="0" r="22" fill="none" />
           <DiodeCore />
-          <line x1="20" y1="-25" x2="38.5" y2="-43.5" strokeLinecap="butt" />
-          <ArrowHead x={42} y={-47} angle={-45} />
-          <line x1="10" y1="-34" x2="28.5" y2="-52.5" strokeLinecap="butt" />
-          <ArrowHead x={32} y={-56} angle={-45} />
+          <line x1="24" y1="-21" x2="39.5" y2="-36.5" strokeLinecap="butt" />
+          <ArrowHead x={43} y={-40} angle={-45} />
+          <line x1="14" y1="-30" x2="29.5" y2="-45.5" strokeLinecap="butt" />
+          <ArrowHead x={33} y={-49} angle={-45} />
         </>
       );
       break;
@@ -1218,9 +1218,9 @@ function getComponentLabelExtent(component, position) {
       }
       return position === "left" ? 11 : 50;
     case "ldr":
-      return position === "above" ? 53 : 27;
+      return position === "above" ? 50 : 27;
     case "led":
-      return position === "above" ? 56 : 22;
+      return position === "above" ? 49 : 22;
     case "wire-segment":
       return 2;
     default:
@@ -8125,13 +8125,13 @@ function App() {
                           hit: {
                             left: 55,
                             right: 55,
-                            top: 58,
+                            top: 55,
                             bottom: 33,
                           },
                           selection: {
                             left: 54,
                             right: 54,
-                            top: 56,
+                            top: 53,
                             bottom: 31,
                           },
                         };
@@ -8140,13 +8140,13 @@ function App() {
                           hit: {
                             left: 55,
                             right: 55,
-                            top: 61,
+                            top: 54,
                             bottom: 28,
                           },
                           selection: {
                             left: 54,
                             right: 54,
-                            top: 59,
+                            top: 52,
                             bottom: 26,
                           },
                         };
