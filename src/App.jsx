@@ -31,6 +31,8 @@ const CELL_COUNT_MIN = 1;
 const CELL_COUNT_MAX = 8;
 const CELL_GROUP_SPACING = 20;
 const CELL_PLATE_OFFSET = 5;
+const FANCY_TEXT_FONT_FAMILY = 'Georgia, "Times New Roman", serif';
+const GEORGIA_ADJUSTED_DIGIT_PATTERN = /([12]+|[3459]+|7+)/;
 
 const TRANSFORMER_TERMINAL_Y = 27;
 const TRANSFORMER_CORE_HALF_HEIGHT = 34;
@@ -101,6 +103,7 @@ const BASIC_SYMBOLS = [
 
 const ADVANCED_SYMBOLS = [
   { type: "capacitor", label: "Capacitor" },
+  { type: "ac-supply", label: "AC supply" },
   { type: "switch-two-way", label: "Two-way switch" },
   { type: "potential-divider", label: "Potential divider" },
   { type: "potentiometer", label: "Potentiometer" },
@@ -449,7 +452,7 @@ function CircuitSymbol({
   fancyText = false,
 }) {
   const textFontFamily = fancyText
-    ? 'Georgia, "Times New Roman", serif'
+    ? FANCY_TEXT_FONT_FAMILY
     : "Arial, sans-serif";
   const fancyTextStyle = fancyText
     ? {
@@ -743,6 +746,20 @@ function CircuitSymbol({
       );
       break;
 
+    case "ac-supply":
+      body = (
+        <>
+          <line x1="-50" y1="0" x2="-22" y2="0" />
+          <line x1="22" y1="0" x2="50" y2="0" />
+          <circle cx="0" cy="0" r="22" />
+          <path
+            d="M -14 0 C -10 -12 -5 -12 0 0 C 5 12 10 12 14 0"
+            transform={`rotate(${-componentRotation})`}
+          />
+        </>
+      );
+      break;
+
     case "motor":
       body = (
         <>
@@ -949,7 +966,7 @@ function CircuitSymbol({
       body = (
         <>
           <line x1="-50" y1="0" x2="50" y2="0" />
-          <circle cx="0" cy="0" r="25" fill="none" />
+          <circle cx="0" cy="0" r="22" fill="none" />
           <DiodeCore />
         </>
       );
@@ -1059,7 +1076,7 @@ function CircuitSymbol({
       body = (
         <>
           <line x1="-50" y1="0" x2="50" y2="0" />
-          <circle cx="0" cy="0" r="25" fill="none" />
+          <circle cx="0" cy="0" r="22" fill="none" />
           <DiodeCore />
           <line x1="20" y1="-25" x2="38.5" y2="-43.5" strokeLinecap="butt" />
           <ArrowHead x={42} y={-47} angle={-45} />
@@ -1167,6 +1184,7 @@ function getComponentLabelExtent(component, position) {
     case "capacitor":
       return 24;
     case "lamp":
+    case "ac-supply":
     case "motor":
       return 22;
     case "buzzer":
@@ -1185,7 +1203,7 @@ function getComponentLabelExtent(component, position) {
     case "ammeter":
       return METER_RADIUS;
     case "diode":
-      return 25;
+      return 22;
     case "resistor":
       return 11;
     case "potential-divider":
@@ -1202,7 +1220,7 @@ function getComponentLabelExtent(component, position) {
     case "ldr":
       return position === "above" ? 53 : 27;
     case "led":
-      return position === "above" ? 56 : 25;
+      return position === "above" ? 56 : 22;
     case "wire-segment":
       return 2;
     default:
@@ -1275,6 +1293,47 @@ function measureLabelTextWidth(
   return context.measureText(value).width;
 }
 
+function renderAlignedFancyText(value, alignGeorgiaNumerals) {
+  if (!alignGeorgiaNumerals) return value;
+
+  return value
+    .split(GEORGIA_ADJUSTED_DIGIT_PATTERN)
+    .filter(Boolean)
+    .map((segment, index) => {
+      const isSeven = /^7+$/.test(segment);
+      const isTallDigit = /^[12]+$/.test(segment);
+      const isDescendingDigit =
+        /^[3459]+$/.test(segment);
+
+      return isSeven || isTallDigit || isDescendingDigit ? (
+        <tspan
+          key={`${segment}-${index}`}
+          baselineShift={
+            isSeven || isDescendingDigit ? "18%" : undefined
+          }
+          fontSize={isTallDigit ? "110%" : undefined}
+          style={
+            isSeven
+              ? {
+                  transform: "scaleY(0.78)",
+                  transformBox: "fill-box",
+                  transformOrigin: "center bottom",
+                  stroke: "currentColor",
+                  strokeWidth: "0.018em",
+                  strokeLinejoin: "round",
+                  paintOrder: "stroke fill",
+                }
+              : undefined
+          }
+        >
+          {segment}
+        </tspan>
+      ) : (
+        segment
+      );
+    });
+}
+
 function CircuitLabelText({
   label,
   x,
@@ -1287,20 +1346,14 @@ function CircuitLabelText({
   onPointerDown,
 }) {
   const trailingSubscript = splitTrailingSubscript(label);
-  const useLiningNumerals =
-    fontFamily.includes("Georgia");
+  const alignGeorgiaNumerals =
+    fontFamily === FANCY_TEXT_FONT_FAMILY;
 
   const commonStyle = {
     fontFamily,
     fontWeight,
     fontStyle,
     whiteSpace: "pre",
-    ...(useLiningNumerals
-      ? {
-          fontVariantNumeric: "lining-nums",
-          fontFeatureSettings: '"lnum" 1',
-        }
-      : {}),
   };
 
   if (!trailingSubscript) {
@@ -1318,7 +1371,7 @@ function CircuitLabelText({
         }}
         onPointerDown={onPointerDown}
       >
-        {label}
+        {renderAlignedFancyText(label, alignGeorgiaNumerals)}
       </text>
     );
   }
@@ -1373,7 +1426,10 @@ function CircuitLabelText({
         }}
         onPointerDown={onPointerDown}
       >
-        {trailingSubscript.main}
+        {renderAlignedFancyText(
+          trailingSubscript.main,
+          alignGeorgiaNumerals
+        )}
       </text>
       <text
         x={subscriptX}
@@ -1388,7 +1444,10 @@ function CircuitLabelText({
         }}
         onPointerDown={onPointerDown}
       >
-        {trailingSubscript.subscript}
+        {renderAlignedFancyText(
+          trailingSubscript.subscript,
+          alignGeorgiaNumerals
+        )}
       </text>
     </>
   );
@@ -1607,7 +1666,10 @@ function getStraightLeadLength(component, port) {
     case "capacitor":
       return 42;
     case "lamp":
+    case "ac-supply":
     case "motor":
+    case "diode":
+    case "led":
       return 28;
     case "buzzer":
       return 38;
@@ -1624,9 +1686,6 @@ function getStraightLeadLength(component, port) {
     case "voltmeter":
       return VOLTMETER_PORT_DISTANCE - METER_RADIUS;
     case "fuse":
-    case "diode":
-    case "led":
-      return 25;
     case "resistor":
     case "variable-resistor":
     case "thermistor":
@@ -3624,7 +3683,7 @@ function App() {
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
 
   const circuitTextFontFamily = fancyText
-    ? 'Georgia, "Times New Roman", serif'
+    ? FANCY_TEXT_FONT_FAMILY
     : "Arial, sans-serif";
 
   // Derived state.
@@ -8077,13 +8136,13 @@ function App() {
                             left: 55,
                             right: 55,
                             top: 61,
-                            bottom: 31,
+                            bottom: 28,
                           },
                           selection: {
                             left: 54,
                             right: 54,
                             top: 59,
-                            bottom: 29,
+                            bottom: 26,
                           },
                         };
                       case "motor":
