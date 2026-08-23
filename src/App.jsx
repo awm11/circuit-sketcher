@@ -432,8 +432,18 @@ function ArrowHead({ x, y, angle = 0, scale = 1 }) {
 function DiodeCore() {
   return (
     <>
-      <polygon points="-13,-14 13,0 -13,14" fill="none" />
-      <line x1="13" y1="-16" x2="13" y2="16" />
+      <polygon
+        points="-12,-13 12,0 -12,13"
+        fill="none"
+        strokeLinejoin="miter"
+      />
+      <line
+        x1="12"
+        y1="-15"
+        x2="12"
+        y2="15"
+        strokeLinecap="butt"
+      />
     </>
   );
 }
