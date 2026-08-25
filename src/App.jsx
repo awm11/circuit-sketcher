@@ -4,7 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 const GRID = 10;
 const WIDTH = 1320;
 const HEIGHT = 840;
-const PORT_DISTANCE = 50;
+const PORT_DISTANCE = GRID * 4;
+const SPECIAL_PORT_DISTANCE = GRID * 5;
+const CELL_BASE_PORT_DISTANCE = GRID * 3;
+const CAPACITOR_PORT_DISTANCE = GRID * 3;
+const GROUND_PORT_DISTANCE = GRID * 2;
 const METER_RADIUS = 18;
 const METER_FONT_SIZE = 18;
 const VOLTMETER_PORT_DISTANCE = GRID * 3;
@@ -37,7 +41,7 @@ const GEORGIA_ADJUSTED_DIGIT_PATTERN = /([012]+|[3459]+|7+)/;
 const TRANSFORMER_TERMINAL_Y = 27;
 const TRANSFORMER_CORE_HALF_HEIGHT = 34;
 
-const INDUCTOR_PATH_D = `M -50 0
+const INDUCTOR_PATH_D = `M -40 0
   L -40 0
 
   C -34 -13 -30 -13 -26 -7
@@ -57,7 +61,7 @@ const INDUCTOR_PATH_D = `M -50 0
   C 22 13 22 -1 28 -7
 
   C 34 -13 38 -13 40 0
-  L 50 0`;
+  L 40 0`;
 
 const TRANSFORMER_WINDING_PATH_D = `M -50 -27
   L -34 -27
@@ -517,10 +521,10 @@ function CircuitSymbol({
     case "switch-open":
       body = (
         <>
-          <line x1="-50" y1="0" x2="-24" y2="0" />
+          <line x1="-40" y1="0" x2="-24" y2="0" />
           <circle cx="-20" cy="0" r="4" fill="none" />
           <circle cx="20" cy="0" r="4" fill="none" />
-          <line x1="24" y1="0" x2="50" y2="0" />
+          <line x1="24" y1="0" x2="40" y2="0" />
           <line x1="-16" y1="-3" x2="16" y2="-22" />
         </>
       );
@@ -529,10 +533,10 @@ function CircuitSymbol({
     case "switch-closed":
       body = (
         <>
-          <line x1="-50" y1="0" x2="-24" y2="0" />
+          <line x1="-40" y1="0" x2="-24" y2="0" />
           <circle cx="-20" cy="0" r="4" fill="none" />
           <circle cx="20" cy="0" r="4" fill="none" />
-          <line x1="24" y1="0" x2="50" y2="0" />
+          <line x1="24" y1="0" x2="40" y2="0" />
           <line x1="-16" y1="0" x2="16" y2="0" />
         </>
       );
@@ -544,14 +548,14 @@ function CircuitSymbol({
 
       body = (
         <>
-          <line x1="-50" y1="0" x2="-24" y2="0" />
+          <line x1="-40" y1="0" x2="-24" y2="0" />
           <circle cx="-20" cy="0" r="4" fill="none" />
 
           <circle cx="20" cy="-20" r="4" fill="none" />
-          <line x1="24" y1="-20" x2="50" y2="-20" />
+          <line x1="24" y1="-20" x2="40" y2="-20" />
 
           <circle cx="20" cy="20" r="4" fill="none" />
-          <line x1="24" y1="20" x2="50" y2="20" />
+          <line x1="24" y1="20" x2="40" y2="20" />
 
           <line
             x1="-16"
@@ -575,7 +579,8 @@ function CircuitSymbol({
         firstCenter + (count - 1) * CELL_GROUP_SPACING;
       const lastShortX = lastCenter + CELL_PLATE_OFFSET;
       const portDistance =
-        PORT_DISTANCE + ((count - 1) * CELL_GROUP_SPACING) / 2;
+        CELL_BASE_PORT_DISTANCE +
+        ((count - 1) * CELL_GROUP_SPACING) / 2;
 
       body = (
         <>
@@ -642,7 +647,7 @@ function CircuitSymbol({
       body = (
         <>
           <line
-            x1="-50"
+            x1="-40"
             y1="0"
             x2="-30"
             y2="0"
@@ -689,7 +694,7 @@ function CircuitSymbol({
           <line
             x1="25"
             y1="0"
-            x2="50"
+            x2="40"
             y2="0"
             strokeLinecap="butt"
           />
@@ -713,7 +718,7 @@ function CircuitSymbol({
       body = (
         <>
           <line
-            x1="-50"
+            x1="-30"
             y1="0"
             x2="-8"
             y2="0"
@@ -722,7 +727,7 @@ function CircuitSymbol({
           <line
             x1="8"
             y1="0"
-            x2="50"
+            x2="30"
             y2="0"
             strokeLinecap="butt"
           />
@@ -747,8 +752,8 @@ function CircuitSymbol({
     case "lamp":
       body = (
         <>
-          <line x1="-50" y1="0" x2="-22" y2="0" />
-          <line x1="22" y1="0" x2="50" y2="0" />
+          <line x1="-40" y1="0" x2="-22" y2="0" />
+          <line x1="22" y1="0" x2="40" y2="0" />
           <circle cx="0" cy="0" r="22" />
           <line x1="-15" y1="-15" x2="15" y2="15" />
           <line x1="-15" y1="15" x2="15" y2="-15" />
@@ -759,8 +764,8 @@ function CircuitSymbol({
     case "ac-supply":
       body = (
         <>
-          <line x1="-50" y1="0" x2="-22" y2="0" />
-          <line x1="22" y1="0" x2="50" y2="0" />
+          <line x1="-40" y1="0" x2="-22" y2="0" />
+          <line x1="22" y1="0" x2="40" y2="0" />
           <circle cx="0" cy="0" r="22" />
           <path
             d="M -14 0 C -10 -12 -5 -12 0 0 C 5 12 10 12 14 0"
@@ -773,8 +778,8 @@ function CircuitSymbol({
     case "motor":
       body = (
         <>
-          <line x1="-50" y1="0" x2="-22" y2="0" />
-          <line x1="22" y1="0" x2="50" y2="0" />
+          <line x1="-40" y1="0" x2="-22" y2="0" />
+          <line x1="22" y1="0" x2="40" y2="0" />
           <circle cx="0" cy="0" r="22" fill="none" />
           <text
             x="0"
@@ -807,8 +812,8 @@ function CircuitSymbol({
 
           <line x1="-12" y1="-16" x2="-12" y2="0" />
           <line x1="12" y1="-16" x2="12" y2="0" />
-          <line x1="-50" y1="0" x2="-12" y2="0" />
-          <line x1="12" y1="0" x2="50" y2="0" />
+          <line x1="-40" y1="0" x2="-12" y2="0" />
+          <line x1="12" y1="0" x2="40" y2="0" />
         </>
       );
       break;
@@ -879,7 +884,7 @@ function CircuitSymbol({
     case "ground":
       body = (
         <>
-          <line x1="0" y1="-50" x2="0" y2="8" />
+          <line x1="0" y1="-20" x2="0" y2="8" />
           <line x1="-18" y1="8" x2="18" y2="8" />
           <line x1="-12" y1="16" x2="12" y2="16" />
           <line x1="-6" y1="24" x2="6" y2="24" />
@@ -890,7 +895,7 @@ function CircuitSymbol({
     case "fuse":
       body = (
         <>
-          <line x1="-50" y1="0" x2="50" y2="0" />
+          <line x1="-40" y1="0" x2="40" y2="0" />
           <rect x="-25" y="-10" width="50" height="20" fill="none" />
         </>
       );
@@ -975,7 +980,7 @@ function CircuitSymbol({
     case "diode":
       body = (
         <>
-          <line x1="-50" y1="0" x2="50" y2="0" />
+          <line x1="-40" y1="0" x2="40" y2="0" />
           <circle cx="0" cy="0" r="22" fill="none" />
           <DiodeCore />
         </>
@@ -985,9 +990,9 @@ function CircuitSymbol({
     case "resistor":
       body = (
         <>
-          <line x1="-50" y1="0" x2="-25" y2="0" />
+          <line x1="-40" y1="0" x2="-25" y2="0" />
           <rect x="-25" y="-11" width="50" height="22" fill="none" />
-          <line x1="25" y1="0" x2="50" y2="0" />
+          <line x1="25" y1="0" x2="40" y2="0" />
         </>
       );
       break;
@@ -1015,9 +1020,9 @@ function CircuitSymbol({
     case "variable-resistor":
       body = (
         <>
-          <line x1="-50" y1="0" x2="-25" y2="0" />
+          <line x1="-40" y1="0" x2="-25" y2="0" />
           <rect x="-25" y="-11" width="50" height="22" fill="none" />
-          <line x1="25" y1="0" x2="50" y2="0" />
+          <line x1="25" y1="0" x2="40" y2="0" />
           <line x1="-30" y1="30" x2="28.5" y2="-28.5" strokeLinecap="butt" />
           <ArrowHead x={32} y={-32} angle={-45} />
         </>
@@ -1034,7 +1039,7 @@ function CircuitSymbol({
 
       body = (
         <>
-          <line x1="0" y1="-50" x2="0" y2="-28" />
+          <line x1="0" y1="-40" x2="0" y2="-28" />
           <rect
             x="-11"
             y="-28"
@@ -1042,7 +1047,7 @@ function CircuitSymbol({
             height="56"
             fill="none"
           />
-          <line x1="0" y1="28" x2="0" y2="50" />
+          <line x1="0" y1="28" x2="0" y2="40" />
 
           <polyline
             points={`${wiperCornerX},${wiperEndY} ${wiperCornerX},0 15.5,0`}
@@ -1059,9 +1064,9 @@ function CircuitSymbol({
     case "thermistor":
       body = (
         <>
-          <line x1="-50" y1="0" x2="-25" y2="0" />
+          <line x1="-40" y1="0" x2="-25" y2="0" />
           <rect x="-25" y="-11" width="50" height="22" fill="none" />
-          <line x1="25" y1="0" x2="50" y2="0" />
+          <line x1="25" y1="0" x2="40" y2="0" />
           <polyline points="-28,22 -17,22 24,-22" />
         </>
       );
@@ -1070,8 +1075,8 @@ function CircuitSymbol({
     case "ldr":
       body = (
         <>
-          <line x1="-50" y1="0" x2="-16" y2="0" />
-          <line x1="16" y1="0" x2="50" y2="0" />
+          <line x1="-40" y1="0" x2="-16" y2="0" />
+          <line x1="16" y1="0" x2="40" y2="0" />
           <circle cx="0" cy="0" r="27" fill="none" />
           <rect x="-16" y="-7" width="32" height="14" fill="none" />
           <line x1="-43" y1="-39" x2="-27.5" y2="-23.5" strokeLinecap="butt" />
@@ -1085,7 +1090,7 @@ function CircuitSymbol({
     case "led":
       body = (
         <>
-          <line x1="-50" y1="0" x2="50" y2="0" />
+          <line x1="-40" y1="0" x2="40" y2="0" />
           <circle cx="0" cy="0" r="22" fill="none" />
           <DiodeCore />
           <line x1="24" y1="-21" x2="39.5" y2="-36.5" strokeLinecap="butt" />
@@ -1101,7 +1106,7 @@ function CircuitSymbol({
       break;
 
     default:
-      body = <line x1="-50" y1="0" x2="50" y2="0" />;
+      body = <line x1="-40" y1="0" x2="40" y2="0" />;
   }
 
   return <g {...common}>{body}</g>;
@@ -1572,8 +1577,20 @@ function getComponentPortDistance(component) {
     return AMMETER_PORT_DISTANCE;
   }
 
+  if (component.type === "capacitor") {
+    return CAPACITOR_PORT_DISTANCE;
+  }
+
   if (component.type === "wire-segment") {
     return (component.length ?? DEFAULT_WIRE_COMPONENT_LENGTH) / 2;
+  }
+
+  if (
+    component.type === "microphone" ||
+    component.type === "transformer" ||
+    component.type === "potential-divider"
+  ) {
+    return SPECIAL_PORT_DISTANCE;
   }
 
   if (component.type === "cell") {
@@ -1584,7 +1601,7 @@ function getComponentPortDistance(component) {
     );
 
     return (
-      PORT_DISTANCE +
+      CELL_BASE_PORT_DISTANCE +
       ((count - 1) * CELL_GROUP_SPACING) / 2
     );
   }
@@ -1626,7 +1643,7 @@ function getPortLocalPosition(component, port) {
 
   if (component.type === "microphone") {
     return {
-      x: PORT_DISTANCE,
+      x: SPECIAL_PORT_DISTANCE,
       y: port === "lower" ? 12 : -12,
     };
   }
@@ -1653,13 +1670,13 @@ function getPortLocalPosition(component, port) {
     const isTop = port.endsWith("Top");
 
     return {
-      x: isPrimary ? -PORT_DISTANCE : PORT_DISTANCE,
+      x: isPrimary ? -SPECIAL_PORT_DISTANCE : SPECIAL_PORT_DISTANCE,
       y: isTop ? -TRANSFORMER_TERMINAL_Y : TRANSFORMER_TERMINAL_Y,
     };
   }
 
   if (component.type === "ground") {
-    return { x: 0, y: -PORT_DISTANCE };
+    return { x: 0, y: -GROUND_PORT_DISTANCE };
   }
 
   return {
@@ -1673,29 +1690,29 @@ function getStraightLeadLength(component, port) {
     case "switch-open":
     case "switch-closed":
     case "switch-two-way":
-      return 26;
+      return 16;
     case "cell":
-      return 45;
+      return 25;
     case "battery":
-      return port === "left" ? 20 : 25;
+      return port === "left" ? 10 : 15;
     case "capacitor":
-      return 42;
+      return 22;
     case "lamp":
     case "ac-supply":
     case "motor":
     case "diode":
     case "led":
-      return 28;
+      return 18;
     case "buzzer":
-      return 38;
+      return 28;
     case "microphone":
       return 32;
     case "solenoid":
-      return 13;
+      return 3;
     case "transformer":
       return 16;
     case "ground":
-      return 50;
+      return GROUND_PORT_DISTANCE;
     case "ammeter":
       return AMMETER_PORT_DISTANCE - METER_RADIUS;
     case "voltmeter":
@@ -1704,15 +1721,15 @@ function getStraightLeadLength(component, port) {
     case "resistor":
     case "variable-resistor":
     case "thermistor":
-      return 25;
+      return 15;
     case "ldr":
-      return 23;
+      return 13;
     case "potential-divider":
       return port === "tap"
         ? POTENTIAL_DIVIDER_TAP_LENGTH
         : 7;
     case "potentiometer":
-      return port === "wiper" ? 40 : 22;
+      return port === "wiper" ? 40 : 12;
     case "wire-segment":
       return component.length ?? DEFAULT_WIRE_COMPONENT_LENGTH;
     case "junction":
@@ -8240,13 +8257,13 @@ function App() {
                           hit: {
                             left: 25,
                             right: 25,
-                            top: 55,
+                            top: 35,
                             bottom: 31,
                           },
                           selection: {
                             left: 23,
                             right: 23,
-                            top: 53,
+                            top: 33,
                             bottom: 29,
                           },
                         };
