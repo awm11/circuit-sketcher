@@ -6,7 +6,7 @@ const WIDTH = 1320;
 const HEIGHT = 840;
 const PORT_DISTANCE = GRID * 4;
 const SPECIAL_PORT_DISTANCE = GRID * 5;
-const CELL_BASE_PORT_DISTANCE = GRID * 3;
+const CELL_BASE_PORT_DISTANCE = GRID * 2;
 const CAPACITOR_PORT_DISTANCE = GRID * 3;
 const GROUND_PORT_DISTANCE = GRID * 2;
 const METER_RADIUS = 18;
@@ -474,6 +474,9 @@ function CircuitSymbol({
         fontFeatureSettings: '"lnum" 1',
       }
     : undefined;
+  const normalizedComponentRotation =
+    ((componentRotation % 360) + 360) % 360;
+  const isUpsideDown = normalizedComponentRotation === 180;
 
   const common = {
     fill: "none",
@@ -628,12 +631,18 @@ function CircuitSymbol({
 
           {showPolarity && (
             <text
-              x={firstLongX - 12}
-              y="-22"
+              x={firstLongX - 14}
+              y={isUpsideDown ? 22 : -22}
               fontSize="18"
               fill="currentColor"
               stroke="none"
               fontFamily="Arial, sans-serif"
+              textAnchor={isUpsideDown ? "end" : undefined}
+              transform={
+                isUpsideDown
+                  ? `rotate(-180 ${firstLongX - 14} 22)`
+                  : undefined
+              }
             >
               +
             </text>
@@ -649,50 +658,50 @@ function CircuitSymbol({
           <line
             x1="-40"
             y1="0"
-            x2="-30"
+            x2="-27.5"
             y2="0"
             strokeLinecap="butt"
           />
           <line
-            x1="-30"
+            x1="-27.5"
             y1="-25"
-            x2="-30"
+            x2="-27.5"
             y2="25"
             strokeLinecap="butt"
           />
           <line
-            x1="-17"
+            x1="-14.5"
             y1="-10"
-            x2="-17"
+            x2="-14.5"
             y2="10"
             strokeWidth="4"
             strokeLinecap="butt"
           />
           <line
-            x1="-17"
+            x1="-14.5"
             y1="0"
-            x2="12"
+            x2="14.5"
             y2="0"
             strokeDasharray="5 5"
             strokeLinecap="butt"
           />
           <line
-            x1="12"
+            x1="14.5"
             y1="-25"
-            x2="12"
+            x2="14.5"
             y2="25"
             strokeLinecap="butt"
           />
           <line
-            x1="25"
+            x1="27.5"
             y1="-10"
-            x2="25"
+            x2="27.5"
             y2="10"
             strokeWidth="4"
             strokeLinecap="butt"
           />
           <line
-            x1="25"
+            x1="27.5"
             y1="0"
             x2="40"
             y2="0"
@@ -700,12 +709,18 @@ function CircuitSymbol({
           />
           {showPolarity && (
             <text
-              x="-45"
-              y="-22"
+              x="-41.5"
+              y={isUpsideDown ? 22 : -22}
               fontSize="18"
               fill="currentColor"
               stroke="none"
               fontFamily="Arial, sans-serif"
+              textAnchor={isUpsideDown ? "end" : undefined}
+              transform={
+                isUpsideDown
+                  ? "rotate(-180 -41.5 22)"
+                  : undefined
+              }
             >
               +
             </text>
@@ -2367,8 +2382,13 @@ function getWireGeometry(
   cDirectionKey = null,
   cOffset = DEFAULT_C_WIRE_OFFSET
 ) {
-  // Aligned terminals always use one straight segment.
-  if (from.y === to.y || from.x === to.x) {
+  // Aligned terminals normally use one straight segment. A requested C-shape
+  // is the exception: it lets two terminals that both point at right angles
+  // to their shared axis leave their components in the correct direction.
+  if (
+    route !== "c-shape" &&
+    (from.y === to.y || from.x === to.x)
+  ) {
     const points = [from, to];
 
     return {
@@ -2668,6 +2688,77 @@ function getStoredWireGeometry(wire, componentLookup) {
       wire.cOffset
     ),
   };
+}
+
+function swapInwardCellBatteryWirePorts(
+  sourceWires,
+  rotatedComponent,
+  allComponents
+) {
+  if (!POLARITY_COMPONENT_TYPES.has(rotatedComponent.type)) {
+    return sourceWires;
+  }
+
+  const componentLookup = new Map(
+    allComponents.map((component) => [
+      component.id,
+      component.id === rotatedComponent.id
+        ? rotatedComponent
+        : component,
+    ])
+  );
+
+  return sourceWires.map((wire) => {
+    const resolved = getStoredWireGeometry(
+      wire,
+      componentLookup
+    );
+    if (!resolved || resolved.geometry.points.length < 2) {
+      return wire;
+    }
+
+    const points = resolved.geometry.points;
+    let nextWire = wire;
+
+    for (const endpointKey of ["from", "to"]) {
+      const endpoint = wire[endpointKey];
+      if (
+        endpoint.componentId !== rotatedComponent.id ||
+        !["left", "right"].includes(endpoint.port)
+      ) {
+        continue;
+      }
+
+      const terminal =
+        endpointKey === "from"
+          ? points[0]
+          : points[points.length - 1];
+      const adjacent =
+        endpointKey === "from"
+          ? points[1]
+          : points[points.length - 2];
+      const outward = getPortDirection(
+        rotatedComponent,
+        endpoint.port
+      );
+      const segmentX = adjacent.x - terminal.x;
+      const segmentY = adjacent.y - terminal.y;
+      const pointsIntoComponent =
+        segmentX * outward.x + segmentY * outward.y < -0.01;
+
+      if (pointsIntoComponent) {
+        nextWire = {
+          ...nextWire,
+          [endpointKey]: {
+            ...nextWire[endpointKey],
+            port: endpoint.port === "left" ? "right" : "left",
+          },
+        };
+      }
+    }
+
+    return nextWire;
+  });
 }
 
 function closestPointOnSegment(point, from, to) {
@@ -5196,6 +5287,12 @@ function App() {
         ? fromPoint.x === toPoint.x ||
           fromPoint.y === toPoint.y
         : false;
+    const alignedPerpendicularToPorts = Boolean(
+      terminalsAreAligned &&
+        sharedDirection &&
+        ((fromPoint.x === toPoint.x && sharedDirection.x !== 0) ||
+          (fromPoint.y === toPoint.y && sharedDirection.y !== 0))
+    );
     const cShapeAllowed =
       allowCShape &&
       !wireStart.leadInset &&
@@ -5209,7 +5306,7 @@ function App() {
     const useCShape = Boolean(
       cShapeAllowed &&
         sharedDirection &&
-        !terminalsAreAligned
+        (!terminalsAreAligned || alignedPerpendicularToPorts)
     );
 
     return {
@@ -6037,6 +6134,13 @@ function App() {
     setComponents((current) =>
       current.map((item) =>
         item.id === component.id ? rotated : item
+      )
+    );
+    setWires((current) =>
+      swapInwardCellBatteryWirePorts(
+        current,
+        rotated,
+        components
       )
     );
   }
@@ -7811,7 +7915,7 @@ function App() {
                         fill="none"
                         stroke="currentColor"
                         strokeWidth="2.4"
-                        strokeLinecap="butt"
+                        strokeLinecap="square"
                         strokeLinejoin="miter"
                       />
 
