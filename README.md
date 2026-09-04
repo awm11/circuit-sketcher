@@ -1,6 +1,6 @@
-# GCSE Circuit Drawer (React)
+# Circuit Sketcher
 
-A small React/Vite circuit-diagram editor using SVG symbols suitable for GCSE physics.
+A small React/Vite circuit-diagram editor using clear, standard physics symbols.
 
 ## Included symbols
 
@@ -29,7 +29,8 @@ A small React/Vite circuit-diagram editor using SVG symbols suitable for GCSE ph
 - Duplicate/delete components
 - Wire components together using blue terminals
 - Wires stay attached when components move or rotate
-- Export a clean SVG without the editor grid/handles
+- Copy or download a tightly cropped, high-resolution PNG without the editor grid or handles
+- Open a clean SVG for vector workflows
 
 ## Run locally
 
@@ -49,5 +50,5 @@ npm run build
 ## Notes
 
 The symbols are drawn as React SVG primitives, so changing stroke widths,
-dimensions, labels, or adding another GCSE component only requires extending
+dimensions, labels, or adding another component only requires extending
 `CircuitSymbol()` and the `SYMBOLS` palette list in `src/App.jsx`.

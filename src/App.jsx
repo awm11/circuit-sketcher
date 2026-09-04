@@ -30,6 +30,13 @@ const WIRE_TOOL_HIT_WIDTH = GRID * 1.4;
 const WIRE_TOOL_ARROW_SHORT_SEGMENT_MAX = GRID * 3;
 const UNDO_LIMIT = 100;
 const DEFAULT_WIRE_COMPONENT_LENGTH = 100;
+const DEFAULT_COMPONENT_COLOR = "#111827";
+const COMPONENT_COLOR_SWATCHES = [
+  { value: DEFAULT_COMPONENT_COLOR, label: "Black" },
+  { value: "#15803d", label: "Green" },
+  { value: "#dc2626", label: "Red" },
+  { value: "#2563eb", label: "Blue" },
+];
 const MIN_WIRE_COMPONENT_LENGTH = GRID;
 const CELL_COUNT_MIN = 1;
 const CELL_COUNT_MAX = 8;
@@ -1148,12 +1155,13 @@ function PaletteSymbolButton({
   );
 }
 
-function PaletteIcon({ type }) {
+function PaletteIcon({ type, color = DEFAULT_COMPONENT_COLOR }) {
   return (
     <svg
       viewBox="-58 -58 116 116"
       className="palette-icon"
       aria-hidden="true"
+      style={{ color }}
     >
       {type === "label" ? (
         <text
@@ -1174,6 +1182,42 @@ function PaletteIcon({ type }) {
         />
       )}
     </svg>
+  );
+}
+
+function ComponentColourControl({ value, onChange }) {
+  const currentColor = value ?? DEFAULT_COMPONENT_COLOR;
+
+  return (
+    <div className="colour-control">
+      <div className="colour-control-label">Colour</div>
+      <div className="colour-options" role="group" aria-label="Component colour">
+        {COMPONENT_COLOR_SWATCHES.map((swatch) => (
+          <button
+            key={swatch.value}
+            type="button"
+            className="colour-swatch"
+            style={{ backgroundColor: swatch.value }}
+            aria-label={swatch.label}
+            aria-pressed={currentColor.toLowerCase() === swatch.value}
+            title={swatch.label}
+            onClick={() => onChange(swatch.value)}
+          />
+        ))}
+        <label className="colour-picker" title="Choose a custom colour">
+          <span
+            className="colour-picker-preview"
+            style={{ backgroundColor: currentColor }}
+          />
+          <input
+            type="color"
+            value={currentColor}
+            onChange={(event) => onChange(event.target.value)}
+            aria-label="Choose a custom component colour"
+          />
+        </label>
+      </div>
+    </div>
   );
 }
 
@@ -1396,6 +1440,7 @@ function CircuitLabelText({
       <text
         x={x}
         y={y}
+        fill="currentColor"
         textAnchor={textAnchor}
         dominantBaseline="middle"
         xmlSpace="preserve"
@@ -1451,6 +1496,7 @@ function CircuitLabelText({
       <text
         x={mainX}
         y={y}
+        fill="currentColor"
         textAnchor="start"
         dominantBaseline="middle"
         xmlSpace="preserve"
@@ -1469,6 +1515,7 @@ function CircuitLabelText({
       <text
         x={subscriptX}
         y={y + fontSize * 0.28}
+        fill="currentColor"
         textAnchor="start"
         dominantBaseline="middle"
         xmlSpace="preserve"
@@ -3252,7 +3299,8 @@ function makeFixedWirePiece(
   fromEndpoint,
   toEndpoint,
   points,
-  currentArrow = "none"
+  currentArrow = "none",
+  color = DEFAULT_COMPONENT_COLOR
 ) {
   return {
     id: uid(),
@@ -3279,6 +3327,7 @@ function makeFixedWirePiece(
       y: points.at(-1).y,
     },
     currentArrow,
+    color,
   };
 }
 
@@ -3531,7 +3580,11 @@ function wirePath(from, to, route = "horizontal-first") {
   return getWireGeometry(from, to, route).path;
 }
 
-function makeWireComponentFromSegment(from, to) {
+function makeWireComponentFromSegment(
+  from,
+  to,
+  color = DEFAULT_COMPONENT_COLOR
+) {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const horizontal = Math.abs(dy) < 0.01;
@@ -3560,6 +3613,7 @@ function makeWireComponentFromSegment(from, to) {
     labelFontSize: 24,
     length,
     currentArrow: "none",
+    color,
   };
 }
 
@@ -3585,7 +3639,8 @@ function convertWireToolWireToComponents(
   ) {
     const component = makeWireComponentFromSegment(
       resolved.geometry.points[index],
-      resolved.geometry.points[index + 1]
+      resolved.geometry.points[index + 1],
+      wire.color ?? DEFAULT_COMPONENT_COLOR
     );
 
     if (component) {
@@ -3745,7 +3800,7 @@ function cloneCircuitSnapshot(sourceComponents, sourceWires) {
 // ─── Editor application ───────────────────────────────────────────────────
 function App() {
   useEffect(() => {
-    document.title = "Circuit Drawer";
+    document.title = "Circuit Sketcher";
   }, []);
 
   // Refs hold transient gesture state that should not trigger renders.
@@ -3781,6 +3836,7 @@ function App() {
   const [undoHistory, setUndoHistory] = useState([]);
   const [selected, setSelected] = useState(null);
   const [selectedComponentIds, setSelectedComponentIds] = useState([]);
+  const [selectedWireIds, setSelectedWireIds] = useState([]);
   const [marqueeSelection, setMarqueeSelection] = useState(null);
   const [mode, setMode] = useState("select");
   const [wireStart, setWireStart] = useState(null);
@@ -3794,6 +3850,8 @@ function App() {
   const [fancyText, setFancyText] = useState(false);
   const [copyImageStatus, setCopyImageStatus] =
     useState("idle");
+  const [downloadImageStatus, setDownloadImageStatus] =
+    useState("idle");
   const [transparentBackground, setTransparentBackground] =
     useState(false);
   const [unicodePickerOpen, setUnicodePickerOpen] =
@@ -3803,6 +3861,8 @@ function App() {
     useState("");
   const [unicodeCodePointStatus, setUnicodeCodePointStatus] =
     useState("");
+  const [clearConfirmationOpen, setClearConfirmationOpen] =
+    useState(false);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
 
   const circuitTextFontFamily = fancyText
@@ -3834,14 +3894,27 @@ function App() {
   );
 
   const selectedComponent =
-    selected?.kind === "component" && selectedComponentIds.length === 1
-      ? componentMap.get(selected.id) ?? null
+    selectedComponentIds.length === 1 && !selectedWireIds.length
+      ? componentMap.get(selectedComponentIds[0]) ?? null
       : null;
 
   const selectedWire =
-    selected?.kind === "wire"
-      ? wires.find((wire) => wire.id === selected.id) ?? null
+    selectedWireIds.length === 1 && !selectedComponentIds.length
+      ? wires.find((wire) => wire.id === selectedWireIds[0]) ?? null
       : null;
+
+  const selectedItemCount =
+    selectedComponentIds.length + selectedWireIds.length;
+
+  const nonWireComponentCount = useMemo(
+    () =>
+      components.filter(
+        (component) =>
+          component.type !== "wire-segment" &&
+          component.type !== "junction"
+      ).length,
+    [components]
+  );
 
   const filteredUnicodeCharacters = useMemo(() => {
     const query = unicodeSearch.trim().toLowerCase();
@@ -3895,6 +3968,17 @@ function App() {
     return from.x !== to.x && from.y !== to.y;
   })();
 
+  useEffect(() => {
+    if (selected?.kind === "multi") return;
+
+    if (selected?.kind === "wire") {
+      setSelectedWireIds([selected.id]);
+      return;
+    }
+
+    setSelectedWireIds([]);
+  }, [selected]);
+
   // ── Undo snapshots ──────────────────────────────────────────────────────
   function makeUndoSnapshot(
     sourceComponents = components,
@@ -3927,6 +4011,7 @@ function App() {
     // at something that no longer exists in the restored diagram.
     setSelected(null);
     setSelectedComponentIds([]);
+    setSelectedWireIds([]);
     setWireStart(null);
     setWirePreview(null);
     setWireSnapTarget(null);
@@ -4132,6 +4217,7 @@ function App() {
       labelFontSize: type === "label" ? 26 : 24,
       labelBold: false,
       labelItalic: false,
+      color: DEFAULT_COMPONENT_COLOR,
       ...(type === "potential-divider"
         ? { dividerLabel1: "", dividerLabel2: "" }
         : {}),
@@ -4430,6 +4516,7 @@ function App() {
       changed: false,
     };
 
+    setSelectedWireIds([wire.id]);
     setSelected({ kind: "wire", id: wire.id });
   }
 
@@ -5315,6 +5402,7 @@ function App() {
       to: { ...endpoint },
       route: useCShape ? "c-shape" : wireRoute,
       currentArrow: "none",
+      color: DEFAULT_COMPONENT_COLOR,
       ...(useCShape
         ? {
             cDirection: directionToKey(sharedDirection),
@@ -5441,13 +5529,15 @@ function App() {
       targetWire.from,
       junctionEndpoint,
       beforePoints,
-      targetWire.currentArrow ?? "none"
+      targetWire.currentArrow ?? "none",
+      targetWire.color ?? DEFAULT_COMPONENT_COLOR
     );
     const secondPiece = makeFixedWirePiece(
       junctionEndpoint,
       targetWire.to,
       afterPoints,
-      targetWire.currentArrow ?? "none"
+      targetWire.currentArrow ?? "none",
+      targetWire.color ?? DEFAULT_COMPONENT_COLOR
     );
     const branchWire = {
       id: uid(),
@@ -5455,6 +5545,7 @@ function App() {
       to: { ...junctionEndpoint },
       route: wireRoute,
       currentArrow: "none",
+      color: DEFAULT_COMPONENT_COLOR,
     };
 
     rememberUndo();
@@ -5473,6 +5564,7 @@ function App() {
 
     setSelected(null);
     setSelectedComponentIds([]);
+    setSelectedWireIds([]);
     setWireStart(null);
     setWirePreview(null);
     setWireSnapTarget(null);
@@ -5714,6 +5806,53 @@ function App() {
     );
   }
 
+  function setSelectedDrawnWireColor(color) {
+    if (!selectedWire || selectedWire.color === color) return;
+
+    rememberUndo();
+    setWires((current) =>
+      current.map((wire) =>
+        wire.id === selectedWire.id
+          ? { ...wire, color }
+          : wire
+      )
+    );
+  }
+
+  function activateSelectMode() {
+    setMode("select");
+    setWireStart(null);
+    setWirePreview(null);
+    setWireSnapTarget(null);
+    setWireRoute("horizontal-first");
+  }
+
+  function activateWireMode() {
+    setMode("wire");
+    setSelected(null);
+    setSelectedComponentIds([]);
+    setSelectedWireIds([]);
+  }
+
+  function selectAllCanvasItems() {
+    const componentIds = components
+      .filter((component) => component.type !== "junction")
+      .map((component) => component.id);
+    const wireIds = wires.map((wire) => wire.id);
+
+    if (!componentIds.length && !wireIds.length) return;
+
+    rotationPivotRef.current = null;
+    setMode("select");
+    setWireStart(null);
+    setWirePreview(null);
+    setWireSnapTarget(null);
+    setWireRoute("horizontal-first");
+    setSelectedComponentIds(componentIds);
+    setSelectedWireIds(wireIds);
+    setSelected({ kind: "multi" });
+  }
+
   function flipWireCorner() {
     if (wireStart) {
       setWireRoute((current) => oppositeWireRoute(current));
@@ -5782,6 +5921,7 @@ function App() {
     }
 
     setSelectedComponentIds([]);
+    setSelectedWireIds([id]);
     setSelected({ kind: "wire", id });
   }
 
@@ -5807,17 +5947,26 @@ function App() {
   }
 
   function removeSelected() {
-    if (!selected && !selectedComponentIds.length) return;
+    if (!selected && !selectedItemCount) return;
 
     rotationPivotRef.current = null;
 
-    if (selected?.kind === "wire") {
+    const wireIds = new Set(
+      selectedWireIds.length
+        ? selectedWireIds
+        : selected?.kind === "wire"
+          ? [selected.id]
+          : []
+    );
+
+    if (!selectedComponentIds.length && wireIds.size) {
       rememberUndo();
       setWires((current) =>
-        current.filter((wire) => wire.id !== selected.id)
+        current.filter((wire) => !wireIds.has(wire.id))
       );
       setSelected(null);
       setSelectedComponentIds([]);
+      setSelectedWireIds([]);
       return;
     }
 
@@ -5837,8 +5986,9 @@ function App() {
     );
     const attachedWires = wires.filter(
       (wire) =>
-        ids.has(wire.from.componentId) ||
-        ids.has(wire.to.componentId)
+        (ids.has(wire.from.componentId) ||
+          ids.has(wire.to.componentId)) &&
+        !wireIds.has(wire.id)
     );
 
     rememberUndo();
@@ -5860,6 +6010,7 @@ function App() {
     setWires((current) =>
       current.filter(
         (wire) =>
+          !wireIds.has(wire.id) &&
           !ids.has(wire.from.componentId) &&
           !ids.has(wire.to.componentId)
       )
@@ -5867,6 +6018,7 @@ function App() {
 
     setSelected(null);
     setSelectedComponentIds([]);
+    setSelectedWireIds([]);
   }
 
   function rotateSelected() {
@@ -6315,6 +6467,19 @@ function App() {
     );
   }
 
+  function setSelectedComponentColor(color) {
+    if (!selectedComponent || selectedComponent.color === color) return;
+
+    rememberUndo();
+    setComponents((current) =>
+      current.map((component) =>
+        component.id === selectedComponent.id
+          ? { ...component, color }
+          : component
+      )
+    );
+  }
+
   function adjustSelectedCellCount(direction) {
     if (!selectedComponent || selectedComponent.type !== "cell") {
       return;
@@ -6605,6 +6770,20 @@ function App() {
     wireSegmentResizeRef.current = null;
   }
 
+  function requestClearCanvas() {
+    if (nonWireComponentCount >= 3) {
+      setClearConfirmationOpen(true);
+      return;
+    }
+
+    clearCanvas();
+  }
+
+  function confirmClearCanvas() {
+    setClearConfirmationOpen(false);
+    clearCanvas();
+  }
+
   function changeZoom(
     nextZoom,
     anchorClientX = null,
@@ -6738,7 +6917,7 @@ function App() {
 
     clone.remove();
 
-    const SVG_OUTPUT_BUFFER = 30;
+    const SVG_OUTPUT_BUFFER = 10;
     const crop = contentBounds
       ? {
           x: Math.floor(contentBounds.left - SVG_OUTPUT_BUFFER),
@@ -6905,7 +7084,7 @@ function App() {
             1,
             image.naturalHeight || image.height || 1
           );
-          const desiredScale = 4;
+          const desiredScale = 8;
           const maxCanvasDimension = 8192;
           const scale = Math.min(
             desiredScale,
@@ -7016,22 +7195,39 @@ function App() {
     }
   }
 
-  function downloadSvg() {
-    const blob = createCroppedSvgBlob();
-    if (!blob) return;
+  async function downloadPng() {
+    const svgBlob = createCroppedSvgBlob();
+    if (!svgBlob) return;
 
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "circuit-diagram.svg";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
+    setDownloadImageStatus("downloading");
 
-    // The click has already handed the Blob to the browser's download system.
-    requestAnimationFrame(() => {
-      URL.revokeObjectURL(url);
-    });
+    try {
+      const pngBlob = await createPngBlobFromSvg(
+        svgBlob,
+        transparentBackground
+      );
+      const url = URL.createObjectURL(pngBlob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "circuit-diagram.png";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setDownloadImageStatus("downloaded");
+
+      requestAnimationFrame(() => {
+        URL.revokeObjectURL(url);
+      });
+      window.setTimeout(() => {
+        setDownloadImageStatus("idle");
+      }, 1600);
+    } catch (error) {
+      console.error("Could not download circuit image:", error);
+      setDownloadImageStatus("failed");
+      window.setTimeout(() => {
+        setDownloadImageStatus("idle");
+      }, 2200);
+    }
   }
 
   // ── Browser input effects ───────────────────────────────────────────────
@@ -7043,7 +7239,7 @@ function App() {
       if (!event.ctrlKey) return;
 
       // Ctrl+wheel is the browser event produced by a two-finger trackpad
-      // pinch in Chromium/Firefox. Keep that gesture inside Circuit Drawer.
+      // pinch in Chromium/Firefox. Keep that gesture inside Circuit Sketcher.
       event.preventDefault();
 
       if (nativeGestureActiveRef.current) {
@@ -7178,7 +7374,30 @@ function App() {
     function onKeyDown(event) {
       const tag = event.target?.tagName?.toLowerCase();
 
+      if (clearConfirmationOpen) {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          setClearConfirmationOpen(false);
+        }
+        return;
+      }
+
       if (event.ctrlKey || event.metaKey) {
+        if (event.key.toLowerCase() === "a") {
+          if (
+            tag === "input" ||
+            tag === "textarea" ||
+            tag === "select" ||
+            event.target?.isContentEditable
+          ) {
+            return;
+          }
+
+          event.preventDefault();
+          selectAllCanvasItems();
+          return;
+        }
+
         if (event.key.toLowerCase() === "z" && !event.shiftKey) {
           event.preventDefault();
           undoLastAction();
@@ -7202,9 +7421,32 @@ function App() {
           resetZoom();
           return;
         }
+
+        return;
       }
 
-      if (tag === "input" || tag === "textarea") return;
+      if (event.altKey) return;
+
+      if (
+        tag === "input" ||
+        tag === "textarea" ||
+        tag === "select" ||
+        event.target?.isContentEditable
+      ) {
+        return;
+      }
+
+      if (event.key.toLowerCase() === "w") {
+        event.preventDefault();
+        activateWireMode();
+        return;
+      }
+
+      if (event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        activateSelectMode();
+        return;
+      }
 
       if (event.key === "Delete" || event.key === "Backspace") {
         event.preventDefault();
@@ -7271,7 +7513,7 @@ function App() {
     <div className="app-shell">
       <header className="topbar">
         <div>
-          <h1>Circuit Drawer</h1>
+          <h1>Circuit Sketcher</h1>
           <p>
             Drag components onto the page, then connect the blue terminals.
           </p>
@@ -7459,7 +7701,19 @@ function App() {
                       : "Copy image"}
             </button>
             <button onClick={openSvg}>Open SVG</button>
-            <button onClick={downloadSvg}>Download SVG</button>
+            <button
+              onClick={downloadPng}
+              disabled={downloadImageStatus === "downloading"}
+              title="Download a high-resolution PNG for slides and documents"
+            >
+              {downloadImageStatus === "downloading"
+                ? "Downloading…"
+                : downloadImageStatus === "downloaded"
+                  ? "Downloaded ✓"
+                  : downloadImageStatus === "failed"
+                    ? "Download failed"
+                    : "Download PNG"}
+            </button>
           </div>
         </div>
       </header>
@@ -7560,15 +7814,13 @@ function App() {
             >
               <button
                 type="button"
-                className={mode === "select" ? "active" : ""}
+                className={`mode-shortcut-button ${
+                  mode === "select" ? "active" : ""
+                }`}
                 aria-pressed={mode === "select"}
-                onClick={() => {
-                  setMode("select");
-                  setWireStart(null);
-                  setWirePreview(null);
-                  setWireSnapTarget(null);
-                  setWireRoute("horizontal-first");
-                }}
+                aria-keyshortcuts="S"
+                data-shortcut="Shortcut: S"
+                onClick={activateSelectMode}
                 style={
                   mode === "select"
                     ? {
@@ -7587,13 +7839,13 @@ function App() {
 
               <button
                 type="button"
-                className={mode === "wire" ? "active" : ""}
+                className={`mode-shortcut-button ${
+                  mode === "wire" ? "active" : ""
+                }`}
                 aria-pressed={mode === "wire"}
-                onClick={() => {
-                  setMode("wire");
-                  setSelected(null);
-                  setSelectedComponentIds([]);
-                }}
+                aria-keyshortcuts="W"
+                data-shortcut="Shortcut: W"
+                onClick={activateWireMode}
                 style={
                   mode === "wire"
                     ? {
@@ -7735,8 +7987,8 @@ function App() {
                   Delete
                 </button>
                 <button
-                  onClick={clearCanvas}
-                  disabled={!components.length}
+                  onClick={requestClearCanvas}
+                  disabled={!components.length && !wires.length}
                 >
                   Clear
                 </button>
@@ -7901,7 +8153,7 @@ function App() {
                     toComponent
                   );
                   const isSelected =
-                    selected?.kind === "wire" && selected.id === wire.id;
+                    selectedWireIds.includes(wire.id);
                   const wireSelectionOutline = isSelected
                     ? getPolylineCorridorOutline(
                         geometry.points
@@ -7909,7 +8161,12 @@ function App() {
                     : null;
 
                   return (
-                    <g key={wire.id}>
+                    <g
+                      key={wire.id}
+                      style={{
+                        color: wire.color ?? DEFAULT_COMPONENT_COLOR,
+                      }}
+                    >
                       <path
                         d={path}
                         fill="none"
@@ -8448,6 +8705,9 @@ function App() {
                     <g
                       key={component.id}
                       transform={`translate(${component.x} ${component.y})`}
+                      style={{
+                        color: component.color ?? DEFAULT_COMPONENT_COLOR,
+                      }}
                     >
                       <g
                         transform={`rotate(${component.rotation})`}
@@ -9142,21 +9402,40 @@ function App() {
         <aside className="inspector">
           <h2>Inspector</h2>
 
-          {selectedComponentIds.length > 1 ? (
+          {selectedItemCount > 1 ? (
             <>
               <p className="selected-name">
-                {selectedComponentIds.length} components selected
+                {selectedComponentIds.length > 0 && (
+                  <>
+                    {selectedComponentIds.length} component
+                    {selectedComponentIds.length === 1 ? "" : "s"}
+                  </>
+                )}
+                {selectedComponentIds.length > 0 &&
+                  selectedWireIds.length > 0 && " and "}
+                {selectedWireIds.length > 0 && (
+                  <>
+                    {selectedWireIds.length} wire
+                    {selectedWireIds.length === 1 ? "" : "s"}
+                  </>
+                )}
+                {" selected"}
               </p>
               <p className="hint">
                 Drag any selected component to move the whole group. Use Rotate
-                to turn the selection around its centre. Shift-click another
-                component to add or remove it.
+                to turn the selection around its centre. Cmd/Ctrl+A selects
+                everything on the canvas.
               </p>
             </>
           ) : selectedComponent ? (
             <>
               <div className="inspector-symbol">
-                <PaletteIcon type={selectedComponent.type} />
+                <PaletteIcon
+                  type={selectedComponent.type}
+                  color={
+                    selectedComponent.color ?? DEFAULT_COMPONENT_COLOR
+                  }
+                />
               </div>
               {selectedComponent.type === "wire-segment" ? (
                 <div
@@ -9176,7 +9455,7 @@ function App() {
                       color: "#1d4ed8",
                     }}
                   >
-                    Wire component created from pallate
+                    Wire component created from palette
                   </p>
                 </div>
               ) : (
@@ -9186,6 +9465,13 @@ function App() {
                   )}
                 </p>
               )}
+
+              <ComponentColourControl
+                value={
+                  selectedComponent.color ?? DEFAULT_COMPONENT_COLOR
+                }
+                onChange={setSelectedComponentColor}
+              />
 
               {BINARY_SWITCH_TYPES.has(
                 selectedComponent.type
@@ -10116,6 +10402,11 @@ function App() {
                 </p>
               </div>
 
+              <ComponentColourControl
+                value={selectedWire?.color ?? DEFAULT_COMPONENT_COLOR}
+                onChange={setSelectedDrawnWireColor}
+              />
+
               <div
                 style={{
                   marginBottom: "12px",
@@ -10552,6 +10843,104 @@ function App() {
                   any Unicode character by its U+ code point above.
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {clearConfirmationOpen && (
+        <div
+          role="presentation"
+          onPointerDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setClearConfirmationOpen(false);
+            }
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1001,
+            display: "grid",
+            placeItems: "center",
+            padding: "24px",
+            background: "rgba(15, 23, 42, 0.32)",
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="clear-canvas-title"
+            aria-describedby="clear-canvas-description"
+            onPointerDown={(event) => event.stopPropagation()}
+            style={{
+              width: "min(390px, calc(100vw - 36px))",
+              padding: "22px",
+              border: "1px solid #cbd5e1",
+              borderRadius: "16px",
+              background: "white",
+              boxShadow: "0 24px 70px rgba(15, 23, 42, 0.28)",
+            }}
+          >
+            <div
+              aria-hidden="true"
+              style={{
+                width: "38px",
+                height: "38px",
+                display: "grid",
+                placeItems: "center",
+                marginBottom: "14px",
+                borderRadius: "50%",
+                background: "#fef2f2",
+                color: "#dc2626",
+                fontSize: "20px",
+                fontWeight: 750,
+              }}
+            >
+              !
+            </div>
+            <h3
+              id="clear-canvas-title"
+              style={{ margin: 0, color: "#172033", fontSize: "19px" }}
+            >
+              Clear this diagram?
+            </h3>
+            <p
+              id="clear-canvas-description"
+              style={{
+                margin: "8px 0 20px",
+                color: "#5d6e84",
+                fontSize: "14px",
+                lineHeight: 1.5,
+              }}
+            >
+              This will remove {nonWireComponentCount} components and all
+              connected wires. You can undo it afterwards.
+            </p>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "8px",
+              }}
+            >
+              <button
+                type="button"
+                autoFocus
+                onClick={() => setClearConfirmationOpen(false)}
+              >
+                Keep diagram
+              </button>
+              <button
+                type="button"
+                onClick={confirmClearCanvas}
+                style={{
+                  borderColor: "#dc2626",
+                  background: "#dc2626",
+                  color: "white",
+                }}
+              >
+                Clear diagram
+              </button>
             </div>
           </div>
         </div>

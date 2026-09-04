@@ -204,6 +204,37 @@ button:disabled {
   color: #607087;
 }
 
+.mode-shortcut-button {
+  position: relative;
+}
+
+.mode-shortcut-button::after {
+  content: attr(data-shortcut);
+  position: absolute;
+  top: calc(100% + 9px);
+  left: 50%;
+  z-index: 30;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #172033;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 5px 14px rgba(15, 23, 42, 0.22);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -3px);
+  transition: opacity 100ms ease, transform 100ms ease;
+}
+
+.mode-shortcut-button:hover::after,
+.mode-shortcut-button:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
 .svg-wrap {
   flex: 1 1 auto;
   min-height: 0;
@@ -235,7 +266,7 @@ button:disabled {
 
 .component-label {
   font-size: 16px;
-  fill: #111827;
+  fill: currentColor;
   font-family: Arial, sans-serif;
   user-select: none;
 }
@@ -293,6 +324,87 @@ button:disabled {
   margin: 8px 0 18px;
   text-align: center;
   font-weight: 650;
+}
+
+.colour-control {
+  margin: 0 0 18px;
+}
+
+.colour-control-label {
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #5d6e84;
+}
+
+.colour-options {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.colour-swatch,
+.colour-picker {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 50%;
+}
+
+.colour-swatch {
+  padding: 0;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px #b8c4d2;
+}
+
+.colour-swatch:hover {
+  border-color: white;
+  box-shadow: 0 0 0 2px #7f91a5;
+}
+
+.colour-swatch[aria-pressed="true"] {
+  border-color: white;
+  box-shadow: 0 0 0 3px #2563eb;
+}
+
+.colour-picker {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 3px;
+  cursor: pointer;
+  background: conic-gradient(
+    #ef4444,
+    #f59e0b,
+    #22c55e,
+    #3b82f6,
+    #8b5cf6,
+    #ef4444
+  );
+  box-shadow: 0 0 0 1px #b8c4d2;
+}
+
+.colour-picker-preview {
+  width: 100%;
+  height: 100%;
+  border: 2px solid white;
+  border-radius: 50%;
+}
+
+.inspector .colour-picker input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.colour-picker:focus-within {
+  outline: 3px solid rgba(37, 99, 235, 0.28);
+  outline-offset: 3px;
 }
 
 .inspector label {
