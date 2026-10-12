@@ -515,3 +515,89 @@ button:disabled {
     width: 100%;
   }
 }
+
+/* awm Physics branding: logo in the top bar, support links pinned under the palette */
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.awm-home-link {
+  flex: none;
+  display: block;
+  line-height: 0;
+  border-radius: 10px;
+  transition: transform 0.2s ease;
+}
+
+.awm-home-link:hover,
+.awm-home-link:focus-visible {
+  transform: scale(1.1) rotate(8deg);
+}
+
+.awm-home-link img {
+  width: 40px;
+  height: 40px;
+  display: block;
+}
+
+.awm-support {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e3e9f0;
+}
+
+.awm-more-sims {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #172033;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.awm-more-sims img {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: block;
+  transition: transform 0.2s ease;
+}
+
+.awm-more-sims:hover,
+.awm-more-sims:focus-visible {
+  color: #2563eb;
+}
+
+.awm-more-sims:hover img,
+.awm-more-sims:focus-visible img {
+  transform: scale(1.12) rotate(8deg);
+}
+
+.awm-coffee {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  border: 1px solid #e6c700;
+  border-radius: 9px;
+  background: #ffdd00;
+  color: #000000;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform 0.15s ease;
+}
+
+.awm-coffee:hover,
+.awm-coffee:focus-visible {
+  transform: translateY(-1px);
+}

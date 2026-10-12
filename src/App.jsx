@@ -7512,11 +7512,23 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div>
-          <h1>Circuit Sketcher</h1>
-          <p>
-            Drag components onto the page, then connect the blue terminals.
-          </p>
+        <div className="topbar-brand">
+          <a
+            className="awm-home-link"
+            href="/"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="See other simulations at alexmoorephysics.com"
+            title="See other simulations"
+          >
+            <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />
+          </a>
+          <div>
+            <h1>Circuit Sketcher</h1>
+            <p>
+              Drag components onto the page, then connect the blue terminals.
+            </p>
+          </div>
         </div>
 
         <div
@@ -7783,6 +7795,26 @@ function App() {
                 ))}
               </div>
             </div>
+          </div>
+
+          <div className="awm-support">
+            <a
+              className="awm-more-sims"
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />
+              <span>See other simulations</span>
+            </a>
+            <a
+              className="awm-coffee"
+              href="https://www.buymeacoffee.com/awmPhysics"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span aria-hidden="true">☕</span> Buy me a coffee
+            </a>
           </div>
         </aside>
 
